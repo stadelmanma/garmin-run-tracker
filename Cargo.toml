@@ -1,0 +1,17 @@
+[package]
+name = "garmin-run-tracker"
+version = "0.1.0"
+authors = ["Matthew Stadelman <stadelmanma@gmail.com>"]
+edition = "2018"
+description = "An application to process and store garmin FIT files from runs."
+license = "MIT"
+repository = "https://github.com/stadelmanma/garmin-run-tracker"
+readme = "README.md"
+documentation = "https://docs.rs/garmin-run-tracker"
+keywords = ["ant", "fit", "garmin"]
+
+[dependencies]
+chrono = "0.4"
+dirs = "2.0.2"
+fitparser = "0.2"
+rusqlite = "0.23.1"
