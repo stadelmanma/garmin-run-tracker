@@ -9,7 +9,7 @@ pub fn create_database() -> Result<()> {
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
     tx.execute(
-        "create table files (
+        "create table if not exists files (
             type           text not null,
             manufacturer   text,
             product        text,
@@ -21,7 +21,7 @@ pub fn create_database() -> Result<()> {
     )?;
 
     tx.execute(
-        "create table record_messages (
+        "create table if not exists record_messages (
             position_lat  integer,
             position_long integer,
             speed         float,
@@ -35,7 +35,7 @@ pub fn create_database() -> Result<()> {
     )?;
 
     tx.execute(
-        "create table lap_messages (
+        "create table if not exists lap_messages (
             start_position_lat  integer,
             start_position_long integer,
             end_position_lat    integer,

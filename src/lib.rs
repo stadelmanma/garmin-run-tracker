@@ -73,7 +73,7 @@ impl ToSql for SqlValue<'_> {
 }
 
 /// Import parsed fit file data into the local database
-pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<()> {
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
 
@@ -87,7 +87,7 @@ pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<(), Box<dyn std::er
                 // insert new file record into db and set file_rec_id to the row id
                 let mut stmt = tx.prepare_cached(
                     "insert into files (type, manufacturer, product, time_created, serial_number)
-                     values (?1, ?2, ?3, ?4, ?5,)",
+                     values (?1, ?2, ?3, ?4, ?5)",
                 )?;
                 stmt.execute(params![
                     data.get("type"),
@@ -158,7 +158,7 @@ pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<(), Box<dyn std::er
         }
     }
 
-    Ok(())
+    tx.commit()
 }
 
 /// Build a hash map of field references that can be acessed by field name
