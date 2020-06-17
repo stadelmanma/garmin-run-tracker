@@ -1,4 +1,5 @@
 use dirs;
+use log::debug;
 use rusqlite::{params, Connection, Result};
 use std::path::PathBuf;
 
@@ -6,6 +7,12 @@ static DATABASE_NAME: &str = "garmin-run-tracker.db";
 
 /// Create the database and required tables
 pub fn create_database() -> Result<()> {
+    let db = db_path();
+    if db.exists() {
+        debug!("Skipping database initialization, pre-existing database found at {:?}", db);
+        return Ok(());
+    }
+
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
     tx.execute(
@@ -53,12 +60,18 @@ pub fn create_database() -> Result<()> {
     )?;
 
     tx.commit()?;
+    debug!("Completed database initialization");
     Ok(())
 }
 
 pub fn open_db_connection() -> Result<Connection> {
-    let db_path = dirs::data_dir()
+    let db = db_path();
+    debug!("Connected to local database located at: {:?}", db);
+    Connection::open(&db)
+}
+
+fn db_path() -> PathBuf {
+    dirs::data_dir()
         .unwrap_or(PathBuf::new())
-        .join(DATABASE_NAME);
-    Connection::open(&db_path)
+        .join(DATABASE_NAME)
 }

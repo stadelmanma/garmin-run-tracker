@@ -14,5 +14,7 @@ keywords = ["ant", "fit", "garmin"]
 chrono = "0.4"
 dirs = "2.0.2"
 fitparser = "0.2"
+log = "0.4.8"
 rusqlite = "0.23.1"
+simplelog = "0.8.0"
 structopt = "0.3"

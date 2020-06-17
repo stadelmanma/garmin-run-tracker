@@ -1,6 +1,7 @@
 use chrono::Utc;
 use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
+use log::{trace, debug};
 use rusqlite::types::ToSqlOutput;
 use rusqlite::{params, Result, ToSql};
 use std::collections::HashMap;
@@ -41,6 +42,12 @@ impl Deref for SqlValue<'_> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl fmt::Display for SqlValue<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -97,6 +104,7 @@ pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<()> {
                     data.get("serial_number")
                 ])?;
                 file_rec_id = Some(tx.last_insert_rowid());
+                debug!("Processed and stored file_id message with data: {:?}", data)
             }
             MesgNum::Lap => {
                 // store lap mesage
@@ -128,6 +136,7 @@ pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<()> {
                     data.get("timestamp"),
                     file_rec_id
                 ])?;
+                debug!("Processed and stored lap message with data: {:?}", data)
             }
             MesgNum::Record => {
                 // store record mesage
@@ -151,9 +160,10 @@ pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<()> {
                     data.get("timestamp"),
                     file_rec_id
                 ])?;
+                debug!("Processed and stored record message with data: {:?}", data)
             }
             _ => {
-                // todo in debug logging mode output that this message was ignored
+                trace!("Skipped {} message with data: {:?}", mesg.kind(), data)
             }
         }
     }
