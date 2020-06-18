@@ -1,5 +1,5 @@
 use garmin_run_tracker::{create_database, import_fit_data};
-use log::{trace, info};
+use log::{info, trace};
 use simplelog::{Config, LevelFilter, TermLogger, TerminalMode};
 use std::fs::File;
 use std::path::PathBuf;
@@ -17,19 +17,15 @@ struct Cli {
     verbose: i32,
 }
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Cli::from_args();
     let level_filter = if opt.verbose == 1 {
         LevelFilter::Info
-    }
-    else if opt.verbose == 2 {
+    } else if opt.verbose == 2 {
         LevelFilter::Debug
-    }
-    else if opt.verbose > 2 {
+    } else if opt.verbose > 2 {
         LevelFilter::Trace
-    }
-    else {
+    } else {
         LevelFilter::Warn
     };
     TermLogger::init(level_filter, Config::default(), TerminalMode::Mixed)?;
@@ -37,13 +33,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create database if needed
     create_database()?;
 
-    // Read each FIT file and import it
+    // Import each fit file
     for file in opt.files {
-        // open file and parse data
+        trace!("Importing FIT file: {:?}", file);
         let mut fp = File::open(&file)?;
-        let data = fitparser::from_reader(&mut fp)?;
-        trace!("Parsed FIT file: {:?} and found {} messages", file, data.len());
-        import_fit_data(&data)?;
+        import_fit_data(&mut fp)?;
         info!("Successfully imported FIT file: {:?}", file);
     }
 

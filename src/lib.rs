@@ -1,11 +1,13 @@
 use chrono::Utc;
 use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
-use log::{trace, debug};
+use log::{debug, error, trace};
 use rusqlite::types::ToSqlOutput;
-use rusqlite::{params, Result, ToSql};
+use rusqlite::{params, ToSql};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fmt;
+use std::io::prelude::*;
 use std::iter::FromIterator;
 use std::ops::Deref;
 
@@ -52,7 +54,7 @@ impl fmt::Display for SqlValue<'_> {
 }
 
 impl ToSql for SqlValue<'_> {
-    fn to_sql(&self) -> Result<ToSqlOutput<'_>> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         match self.0 {
             Value::Timestamp(val) => Ok(ToSqlOutput::from(val.with_timezone(&Utc).to_rfc3339())),
             Value::Byte(val) => Ok(ToSqlOutput::from(*val)),
@@ -79,29 +81,53 @@ impl ToSql for SqlValue<'_> {
     }
 }
 
-/// Import parsed fit file data into the local database
-pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<()> {
+/// Import raw fit file data into the local database
+pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<(), Box<dyn std::error::Error>> {
+    let mut data = Vec::new();
+    fp.read_to_end(&mut data)?;
+
+    // hash the fit file for deduplication purposes
+    let uuid = generate_uuid(&data);
+    trace!("UUID hash of file: {}", uuid);
+
+    // connect to database and see if the UUID is aleady present before parsing
     let mut conn = open_db_connection()?;
-    let tx = conn.transaction()?;
+    if let Ok(()) = conn.query_row("select id from files where uuid = ?", params![uuid], |_| Ok(())) {
+        error!("Attempted to import a file already in the database, UUID: {}", uuid);
+        return Err(Box::new(Error {
+            message: "Attempted to import a file already in the database",
+        }))
+    }
+
+    // parse the fit file
+    let messages = fitparser::from_bytes(&data)?;
+    trace!("Parsed FIT file and found {} messages", messages.len());
 
     // loop over messages, the file_id message starts a new FIT file and any records appearing
     // before it are disregarded.
+    let tx = conn.transaction()?;
     let mut file_rec_id = None;
     for mesg in messages {
-        let data = create_fit_data_map(mesg);
+        let data = create_fit_data_map(&mesg);
         match mesg.kind() {
             MesgNum::FileId => {
                 // insert new file record into db and set file_rec_id to the row id
                 let mut stmt = tx.prepare_cached(
-                    "insert into files (type, manufacturer, product, time_created, serial_number)
-                     values (?1, ?2, ?3, ?4, ?5)",
+                    "insert into files (type,
+                                        device_manufacturer,
+                                        device_product,
+                                        device_serial_number,
+                                        time_created,
+                                        uuid)
+                     values (?1, ?2, ?3, ?4, ?5, ?6)",
                 )?;
                 stmt.execute(params![
                     data.get("type"),
                     data.get("manufacturer"),
                     data.get("garmin_product"),
+                    data.get("serial_number"),
                     data.get("time_created"),
-                    data.get("serial_number")
+                    uuid,
                 ])?;
                 file_rec_id = Some(tx.last_insert_rowid());
                 debug!("Processed and stored file_id message with data: {:?}", data)
@@ -162,13 +188,12 @@ pub fn import_fit_data(messages: &[FitDataRecord]) -> Result<()> {
                 ])?;
                 debug!("Processed and stored record message with data: {:?}", data)
             }
-            _ => {
-                trace!("Skipped {} message with data: {:?}", mesg.kind(), data)
-            }
+            _ => trace!("Skipped {} message with data: {:?}", mesg.kind(), data),
         }
     }
 
-    tx.commit()
+    tx.commit()?;
+    Ok(())
 }
 
 /// Build a hash map of field references that can be acessed by field name
@@ -178,4 +203,26 @@ pub fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlV
             .iter()
             .map(|f| (f.name(), SqlValue::new(f.value()))),
     )
+}
+
+/// Create a UUID by taking the SHA256 hash of the data and then converting it to UUID4 format
+fn generate_uuid(data: &[u8]) -> String {
+    // Create a SHA256 hash from the data
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let mut result = hasher.finalize();
+
+    // set version and variant bits
+    result[6] = (result[6] & 0b00001111) | 0b01001111;
+    result[10] = (result[10] & 0b00111111) | 0b10111111;
+
+    // encode entire byte array and then truncate result and add grouping dashes
+    let mut uuid = hex::encode(result);
+    uuid.truncate(32);
+    uuid.insert(20, '-');
+    uuid.insert(16, '-');
+    uuid.insert(12, '-');
+    uuid.insert(8, '-');
+
+    uuid
 }

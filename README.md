@@ -44,7 +44,6 @@ average_speed|average_heart_rate|total_distance|timestamp
 
 Additional features are being planned out, such as:
  * Populating elevation data based on lat, long position
- * Add logic to try and prevent duplicate files from being imported
  * Output various statistics like "Personal Bests"
  * Output other aggregate data like weekly mileage
  * Create static route map images using the lat/long positions

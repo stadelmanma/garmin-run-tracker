@@ -9,7 +9,10 @@ static DATABASE_NAME: &str = "garmin-run-tracker.db";
 pub fn create_database() -> Result<()> {
     let db = db_path();
     if db.exists() {
-        debug!("Skipping database initialization, pre-existing database found at {:?}", db);
+        debug!(
+            "Skipping database initialization, pre-existing database found at {:?}",
+            db
+        );
         return Ok(());
     }
 
@@ -17,12 +20,13 @@ pub fn create_database() -> Result<()> {
     let tx = conn.transaction()?;
     tx.execute(
         "create table if not exists files (
-            type           text not null,
-            manufacturer   text,
-            product        text,
-            time_created   datetime not null,
-            serial_number  integer not null,
-            id             integer primary key
+            type                  text not null,
+            device_manufacturer   text,
+            device_product        text,
+            device_serial_number  integer not null,
+            time_created          datetime not null,
+            uuid                  text not null, -- used for deduplication
+            id                    integer primary key
         )",
         params![],
     )?;
