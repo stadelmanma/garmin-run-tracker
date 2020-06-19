@@ -16,13 +16,17 @@ pub use schema::{create_database, open_db_connection};
 
 /// General error type for the crate
 #[derive(Debug)]
-struct Error {
-    message: &'static str,
+enum Error {
+    DuplicateFileError,
+    ArrayConversionError
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
+        match self {
+            Error::DuplicateFileError => write!(f, "Attempted to import a file already in the database"),
+            Error::ArrayConversionError => write!(f, "Cannot convert Value:Array into a SQL parameter")
+        }
     }
 }
 
@@ -74,9 +78,8 @@ impl ToSql for SqlValue<'_> {
             Value::Float32(val) => Ok(ToSqlOutput::from(*val as f64)),
             Value::Float64(val) => Ok(ToSqlOutput::from(*val)),
             Value::String(val) => Ok(ToSqlOutput::Borrowed(val.as_bytes().into())),
-            Value::Array(_) => Err(rusqlite::Error::ToSqlConversionFailure(Box::new(Error {
-                message: "Cannot convert Value:Array into a SQL parameter",
-            }))),
+            Value::Array(_) => Err(rusqlite::Error::ToSqlConversionFailure(
+                Box::new(Error::ArrayConversionError))),
         }
     }
 }
@@ -94,9 +97,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<(), Box<dyn std::error::Er
     let mut conn = open_db_connection()?;
     if let Ok(()) = conn.query_row("select id from files where uuid = ?", params![uuid], |_| Ok(())) {
         error!("Attempted to import a file already in the database, UUID: {}", uuid);
-        return Err(Box::new(Error {
-            message: "Attempted to import a file already in the database",
-        }))
+        return Err(Box::new(Error::DuplicateFileError));
     }
 
     // parse the fit file
