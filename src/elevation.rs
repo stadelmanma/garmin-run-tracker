@@ -1,14 +1,11 @@
 //! Access elevation data for a given GPS location using an external source
+use crate::Error;
 use reqwest::blocking::Client;
-
-// url format
-// http://localhost:5000/v1/ned10m?locations=39.123456,-80.123456|lat,long
-
-// maybe use polyline eventually to send more points
-// https://github.com/georust/polyline
+use serde::Deserialize;
 
 
 /// Stores a single geospatial point
+#[derive(Clone, Copy, Debug)]
 pub struct Location {
     /// latitude coordinate in degrees
     latitude: f32,
@@ -44,6 +41,20 @@ impl Location {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct ErrorResponse {
+    error: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Elevation {
+    elevation: Option<f32>
+}
+
+#[derive(Debug, Deserialize)]
+struct SuccessResponse {
+    results: Vec<Elevation>,
+}
 
 pub fn request_elevation_data(locations: &mut [Location]) -> Result<(), Box<dyn std::error::Error>> {
     // define base url and batch size as setup in opentopodata instance
@@ -57,11 +68,18 @@ pub fn request_elevation_data(locations: &mut [Location]) -> Result<(), Box<dyn 
         let resp = client.get(base_url)
                             .query(&[("locations", &loc_params)])
                             .send()?;
-        // todo: parse response
-        println!("{:#?}", resp);
-
-        for loc in chunk.iter_mut() {
-            // todo add elevation if it exists to the location in the chunk
+        if resp.status().is_success() {
+            // parse response and update locations
+            let json: SuccessResponse = resp.json()?;
+            for (loc, elevation) in chunk.iter_mut().zip(json.results.into_iter().map(|r| r.elevation)) {
+                loc.elevation = elevation;
+            }
+        }
+        else {
+            // parse error response to get reason why the request failed
+            let code = resp.status();
+            let json: ErrorResponse = resp.json()?;
+            return Err(Box::new(Error::ElevationRequestError(code, json.error)));
         }
     }
 
