@@ -3,7 +3,7 @@ use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
 use log::{debug, error, trace};
 use rusqlite::types::ToSqlOutput;
-use rusqlite::{NO_PARAMS, params, ToSql};
+use rusqlite::{params, ToSql};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fmt;
@@ -200,7 +200,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Box<dyn std::error
     }
     // commit transaction to store data imported from file and then fetch elevation data
     tx.commit()?;
-    if let Err(e) = update_elevation_data(Some(&uuid)) {
+    if let Err(e) = update_elevation_data(&uuid) {
         error!("Could not add in elevation data from the API for file with UUID='{}'", uuid);
         error!("{}", e)
     }
@@ -241,37 +241,31 @@ pub fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlV
 }
 
 /// Update elevation for a FIT file or across all data in the database
-pub fn update_elevation_data(uuid: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_elevation_data(uuid: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
 
-    // first add elevation data for the record messages
-    match uuid {
-        Some(uuid) => {
-            if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| r.get::<usize, i32>(0)) {
-                let mut stmt = tx.prepare("select position_lat, position_long, id from record_messages where
-                                             file_id = ? and
-                                             position_lat is not null and
-                                             position_long is not null")?;
-                let rows = stmt.query(params![id])?;
-                request_and_update_elevation_data(&tx, "record_messages", rows)?;
-            }
-            else {
-                error!("FIT File with UUID='{}' does not exist", uuid);
-                return Err(Box::new(Error::FileDoesNotExistError(uuid.to_string())));
-            }
-        },
-        None => {
-            let mut stmt = tx.prepare("select position_lat, position_long, id from record_messages where
-                                         position_lat is not null and
-                                         position_long is not null and
-                                         elevation is null")?;
-            let rows = stmt.query(NO_PARAMS)?;
-            request_and_update_elevation_data(&tx, "record_messages", rows)?;
-        }
-    };
+    if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| r.get::<usize, i32>(0)) {
+        // first add elevation data for the record messages
+        let mut stmt = tx.prepare("select position_lat, position_long, id from record_messages where
+                                     file_id = ? and
+                                     position_lat is not null and
+                                     position_long is not null")?;
+        let rows = stmt.query(params![id])?;
+        add_record_elevation_data(&tx, rows)?;
 
-    // todo lap messages
+        // next add in elevation data for lap messages
+        let mut stmt = tx.prepare("select start_position_lat, start_position_long, end_position_lat, end_position_long, id from lap_messages where
+                                     file_id = ? and
+                                     start_position_lat is not null and
+                                     start_position_long is not null")?;
+        let rows = stmt.query(params![id])?;
+        add_lap_elevation_data(&tx, rows)?;
+    }
+    else {
+        error!("FIT File with UUID='{}' does not exist", uuid);
+        return Err(Box::new(Error::FileDoesNotExistError(uuid.to_string())));
+    }
 
     tx.commit()?;
     Ok(())
@@ -279,7 +273,7 @@ pub fn update_elevation_data(uuid: Option<&str>) -> Result<(), Box<dyn std::erro
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
 /// data back into the database
-fn request_and_update_elevation_data(tx: &rusqlite::Transaction, table: &'static str, mut rows: rusqlite::Rows) -> Result<(), Box<dyn std::error::Error>> {
+fn add_record_elevation_data(tx: &rusqlite::Transaction, mut rows: rusqlite::Rows) -> Result<(), Box<dyn std::error::Error>> {
     let mut locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
     while let Some(row) = rows.next()? {
@@ -288,10 +282,33 @@ fn request_and_update_elevation_data(tx: &rusqlite::Transaction, table: &'static
     }
     request_elevation_data(&mut locations)?;
 
-    let stmt = format!("update {} set elevation = ? where id = ?", table);
+    let stmt = format!("update record_messages set elevation = ? where id = ?");
     let mut stmt = tx.prepare_cached(&stmt)?;
     for (loc, rec_id) in locations.iter().zip(record_ids) {
         stmt.execute(params![loc.elevation().map(|v| v as f64), rec_id])?;
+    }
+
+    Ok(())
+}
+
+/// Updates a set of rows with elevation data by querying the elevation API and then passing that
+/// data back into the database
+fn add_lap_elevation_data(tx: &rusqlite::Transaction, mut rows: rusqlite::Rows) -> Result<(), Box<dyn std::error::Error>> {
+    let mut st_locations: Vec<Location> = Vec::new();
+    let mut en_locations: Vec<Location> = Vec::new();
+    let mut record_ids: Vec<i32> = Vec::new();
+    while let Some(row) = rows.next()? {
+        st_locations.push(Location::from_fit_coordinates(row.get(0)?, row.get(1)?));
+        en_locations.push(Location::from_fit_coordinates(row.get(2)?, row.get(3)?));
+        record_ids.push(row.get(4)?);
+    }
+    request_elevation_data(&mut st_locations)?;
+    request_elevation_data(&mut en_locations)?;
+
+    let stmt = format!("update lap_messages set start_elevation = ?, end_elevation =? where id = ?");
+    let mut stmt = tx.prepare_cached(&stmt)?;
+    for ((st_loc, en_loc), rec_id) in st_locations.iter().zip(en_locations).zip(record_ids) {
+        stmt.execute(params![st_loc.elevation().map(|v| v as f64), en_loc.elevation().map(|v| v as f64), rec_id])?;
     }
 
     Ok(())
