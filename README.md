@@ -42,10 +42,59 @@ average_speed|average_heart_rate|total_distance|timestamp
 */
 ```
 
-Additional features are being planned out, such as:
- * Populating elevation data based on lat, long position
+## Features
+
+### Duplicate File Detection
+
+Duplicate files are currently detected by taking the SHA256 has of the
+entire content and then truncating it down into a 128bit UUID format for
+storage. This method is robust in that if even a single byte changes it
+is a "new" file. However, it is also very IO intensive since the duplicate
+file still gets read in it's entirety. This process could be easily
+reimplemented in parallel to speed up the wall clock time for large import
+sets. A second less robust, but much faster, method would be just checking
+filenames if the import location is known to use a unique naming convention.
+
+### Adding Elevation Data
+
+Elevation data does not always comes with the watch but generally can be
+obtained via various APIs from third-party sources. At the moment if
+elevation data is desired one will need to setup a locally hosted instance
+of [opentopodata](https://www.opentopodata.org/). Implementing
+an interface that would allow other providers to be used is something
+that will be considered at a later date.
+
+See their documentation on how to setup a local instance and load it with
+your desired elevation dataset (if needed). The
+[ned](https://www.opentopodata.org/datasets/ned/) dataset is used here
+which maps nearly the all of North America at 30m and US in higher
+10m resolution.
+
+The config.yml used to setup the local server.
+```yaml
+# 400 error will be thrown above this limit.
+max_locations_per_request: 100
+
+# CORS header. Should be None for no CORS, '*' for all domains, or a url with
+# protocol, domain, and port ('https://api.example.com/'). Default is null.
+access_control_allow_origin: null
+
+# config for 1/3 arcsecond NED data
+datasets:
+  - name: ned10m
+    path: data/ned10m/
+    filename_epsg: 4326  # This is the default value.
+    filename_tile_size: 1  # This is the default value.
+```
+
+
+### Future
+
+Additional features are being considered/planned out, such as:
  * Output various statistics like "Personal Bests"
  * Output other aggregate data like weekly mileage
  * Create static route map images using the lat/long positions
  * Add data plotting capabilities
+ * Implementing the elevation logic as a trait so end users can
+   more easily use their own source(s).
  * ...

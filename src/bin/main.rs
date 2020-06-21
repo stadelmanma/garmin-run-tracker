@@ -37,8 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for file in opt.files {
         trace!("Importing FIT file: {:?}", file);
         let mut fp = File::open(&file)?;
-        import_fit_data(&mut fp)?;
-        info!("Successfully imported FIT file: {:?}", file);
+        let uuid = import_fit_data(&mut fp)?;
+        info!("Successfully imported FIT file: {:?} (UUID={})", file, uuid);
     }
 
     Ok(())
