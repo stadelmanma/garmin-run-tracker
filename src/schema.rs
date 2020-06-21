@@ -37,6 +37,7 @@ pub fn create_database() -> Result<()> {
             position_long integer,
             speed         float,
             distance      float,
+            elevation     float,
             heart_rate    integer,
             timestamp     datetime not null,
             file_id       integer not null,
@@ -49,8 +50,10 @@ pub fn create_database() -> Result<()> {
         "create table if not exists lap_messages (
             start_position_lat  integer,
             start_position_long integer,
+            start_elevation     float,
             end_position_lat    integer,
             end_position_long   integer,
+            end_elevation       float,
             average_speed       float,
             average_heart_rate  integer,
             total_calories      integer,
