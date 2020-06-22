@@ -198,13 +198,8 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Box<dyn std::error
             _ => trace!("Skipped {} message with data: {:?}", mesg.kind(), data),
         }
     }
-    // commit transaction to store data imported from file and then fetch elevation data
+    // commit transaction to store data imported from file
     tx.commit()?;
-    if let Err(e) = update_elevation_data(&uuid) {
-        error!("Could not add in elevation data from the API for file with UUID='{}'", uuid);
-        error!("{}", e)
-    }
-
     Ok(uuid)
 }
 

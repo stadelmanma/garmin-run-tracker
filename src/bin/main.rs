@@ -1,5 +1,5 @@
-use garmin_run_tracker::{create_database, import_fit_data};
-use log::{info, trace};
+use garmin_run_tracker::{create_database, import_fit_data, update_elevation_data};
+use log::{info, trace, error};
 use simplelog::{Config, LevelFilter, TermLogger, TerminalMode};
 use std::fs::File;
 use std::path::PathBuf;
@@ -39,6 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut fp = File::open(&file)?;
         let uuid = import_fit_data(&mut fp)?;
         info!("Successfully imported FIT file: {:?} (UUID={})", file, uuid);
+        if let Err(e) = update_elevation_data(&uuid) {
+            error!("Could not import elevation data from the API for FIT file with UUID='{}'", uuid);
+            error!("{}", e)
+        }
     }
 
     Ok(())
