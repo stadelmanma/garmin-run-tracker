@@ -58,11 +58,12 @@ filenames if the import location is known to use a unique naming convention.
 ### Adding Elevation Data
 
 Elevation data does not always comes with the watch but generally can be
-obtained via various APIs from third-party sources. At the moment if
-elevation data is desired one will need to setup a locally hosted instance
-of [opentopodata](https://www.opentopodata.org/). Implementing
-an interface that would allow other providers to be used is something
-that will be considered at a later date.
+obtained via various APIs from third-party sources. This code was developed
+using a locally hosted instance of [opentopodata](https://www.opentopodata.org/).
+However, any data source can be configured to work via the `ElevationDataSource`
+trait which requires a single method to be implemented. That method
+`request_elevation_data` fetches elevation data for a vector of latitude
+and longitude coordinate pairs, stored as a `Location` struct.
 
 See their documentation on how to setup a local instance and load it with
 your desired elevation dataset (if needed). The
@@ -87,6 +88,11 @@ datasets:
     filename_tile_size: 1  # This is the default value.
 ```
 
+It would be trivial to swap out the locally hosted version of opentopodata
+for the public API hosted at https://api.opentopodata.org/ but one would
+need to be wary of rate limiting. The current code implementation makes
+no effort to "delay" requests to obey API guidelines since it's not
+necessary for a locally hosted version.
 
 ### Future
 
@@ -95,6 +101,4 @@ Additional features are being considered/planned out, such as:
  * Output other aggregate data like weekly mileage
  * Create static route map images using the lat/long positions
  * Add data plotting capabilities
- * Implementing the elevation logic as a trait so end users can
-   more easily use their own source(s).
  * ...

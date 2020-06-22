@@ -1,4 +1,5 @@
 use garmin_run_tracker::{create_database, import_fit_data, update_elevation_data};
+use garmin_run_tracker::elevation::OpenTopoData;
 use log::{info, trace, error};
 use simplelog::{Config, LevelFilter, TermLogger, TerminalMode};
 use std::fs::File;
@@ -33,13 +34,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create database if needed
     create_database()?;
 
+    // use a locally hosted instance of opentopodata as the elevation data source
+    // we have it configured to use the ned10m dataset and a max request batch size of
+    // 100.
+    let topo = OpenTopoData::new("http://localhost:5000".to_string(), "ned10m".to_string(), 100);
+
     // Import each fit file
     for file in opt.files {
         trace!("Importing FIT file: {:?}", file);
         let mut fp = File::open(&file)?;
         let uuid = import_fit_data(&mut fp)?;
         info!("Successfully imported FIT file: {:?} (UUID={})", file, uuid);
-        if let Err(e) = update_elevation_data(&uuid) {
+        if let Err(e) = update_elevation_data(&topo, &uuid) {
             error!("Could not import elevation data from the API for FIT file with UUID='{}'", uuid);
             error!("{}", e)
         }
