@@ -12,31 +12,11 @@ use std::iter::FromIterator;
 use std::ops::Deref;
 
 pub mod elevation;
-pub use elevation::{Location, ElevationDataSource};
+mod error;
+pub use elevation::{ElevationDataSource, Location};
+pub use error::Error;
 mod schema;
 pub use schema::{create_database, open_db_connection};
-
-/// General error type for the crate
-#[derive(Debug)]
-enum Error {
-    ArrayConversionError,
-    DuplicateFileError,
-    ElevationRequestError(reqwest::StatusCode, String),
-    FileDoesNotExistError(String),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::ArrayConversionError => write!(f, "Cannot convert Value:Array into a SQL parameter"),
-            Error::DuplicateFileError => write!(f, "Attempted to import a file already in the database"),
-            Error::ElevationRequestError(code, msg) => write!(f, "Elevation data request failed with code: {} - {}", code, msg),
-            Error::FileDoesNotExistError(uuid) => write!(f, "FIT File with UUID='{}' does not exist", uuid),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
 
 /// Acts as a pointer to a Value variant that can be used in parameterized sql statements
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -84,14 +64,15 @@ impl ToSql for SqlValue<'_> {
             Value::Float32(val) => Ok(ToSqlOutput::from(*val as f64)),
             Value::Float64(val) => Ok(ToSqlOutput::from(*val)),
             Value::String(val) => Ok(ToSqlOutput::Borrowed(val.as_bytes().into())),
-            Value::Array(_) => Err(rusqlite::Error::ToSqlConversionFailure(
-                Box::new(Error::ArrayConversionError))),
+            Value::Array(_) => Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+                Error::ArrayConversionError,
+            ))),
         }
     }
 }
 
 /// Import raw fit file data into the local database
-pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Box<dyn std::error::Error>> {
+pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Error> {
     let mut data = Vec::new();
     fp.read_to_end(&mut data)?;
 
@@ -101,9 +82,10 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Box<dyn std::error
 
     // connect to database and see if the UUID is aleady present before parsing
     let mut conn = open_db_connection()?;
-    if let Ok(()) = conn.query_row("select id from files where uuid = ?", params![uuid], |_| Ok(())) {
-        error!("Attempted to import a file already in the database, UUID: {}", uuid);
-        return Err(Box::new(Error::DuplicateFileError));
+    if let Ok(()) = conn.query_row("select id from files where uuid = ?", params![uuid], |_| {
+        Ok(())
+    }) {
+        return Err(Error::DuplicateFileError(uuid));
     }
 
     // parse the fit file
@@ -203,7 +185,6 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Box<dyn std::error
     Ok(uuid)
 }
 
-
 /// Create a UUID by taking the SHA256 hash of the data and then converting it to UUID4 format
 fn generate_uuid(data: &[u8]) -> String {
     // Create a SHA256 hash from the data
@@ -236,16 +217,23 @@ pub fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlV
 }
 
 /// Update elevation for a FIT file or across all data in the database
-pub fn update_elevation_data<T: ElevationDataSource>(src: &T, uuid: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn update_elevation_data<T: ElevationDataSource>(
+    src: &T,
+    uuid: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
 
-    if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| r.get::<usize, i32>(0)) {
+    if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| {
+        r.get::<usize, i32>(0)
+    }) {
         // first add elevation data for the record messages
-        let mut stmt = tx.prepare("select position_lat, position_long, id from record_messages where
+        let mut stmt = tx.prepare(
+            "select position_lat, position_long, id from record_messages where
                                      file_id = ? and
                                      position_lat is not null and
-                                     position_long is not null")?;
+                                     position_long is not null",
+        )?;
         let rows = stmt.query(params![id])?;
         add_record_elevation_data(src, &tx, rows)?;
 
@@ -256,8 +244,7 @@ pub fn update_elevation_data<T: ElevationDataSource>(src: &T, uuid: &str) -> Res
                                      start_position_long is not null")?;
         let rows = stmt.query(params![id])?;
         add_lap_elevation_data(src, &tx, rows)?;
-    }
-    else {
+    } else {
         error!("FIT File with UUID='{}' does not exist", uuid);
         return Err(Box::new(Error::FileDoesNotExistError(uuid.to_string())));
     }
@@ -268,7 +255,11 @@ pub fn update_elevation_data<T: ElevationDataSource>(src: &T, uuid: &str) -> Res
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
 /// data back into the database
-fn add_record_elevation_data<T: ElevationDataSource>(src: &T, tx: &rusqlite::Transaction, mut rows: rusqlite::Rows) -> Result<(), Box<dyn std::error::Error>> {
+fn add_record_elevation_data<T: ElevationDataSource>(
+    src: &T,
+    tx: &rusqlite::Transaction,
+    mut rows: rusqlite::Rows,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
     while let Some(row) = rows.next()? {
@@ -288,7 +279,11 @@ fn add_record_elevation_data<T: ElevationDataSource>(src: &T, tx: &rusqlite::Tra
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
 /// data back into the database
-fn add_lap_elevation_data<T: ElevationDataSource>(src: &T, tx: &rusqlite::Transaction, mut rows: rusqlite::Rows) -> Result<(), Box<dyn std::error::Error>> {
+fn add_lap_elevation_data<T: ElevationDataSource>(
+    src: &T,
+    tx: &rusqlite::Transaction,
+    mut rows: rusqlite::Rows,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut st_locations: Vec<Location> = Vec::new();
     let mut en_locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
@@ -300,10 +295,15 @@ fn add_lap_elevation_data<T: ElevationDataSource>(src: &T, tx: &rusqlite::Transa
     src.request_elevation_data(&mut st_locations)?;
     src.request_elevation_data(&mut en_locations)?;
 
-    let stmt = format!("update lap_messages set start_elevation = ?, end_elevation =? where id = ?");
+    let stmt =
+        format!("update lap_messages set start_elevation = ?, end_elevation =? where id = ?");
     let mut stmt = tx.prepare_cached(&stmt)?;
     for ((st_loc, en_loc), rec_id) in st_locations.iter().zip(en_locations).zip(record_ids) {
-        stmt.execute(params![st_loc.elevation().map(|v| v as f64), en_loc.elevation().map(|v| v as f64), rec_id])?;
+        stmt.execute(params![
+            st_loc.elevation().map(|v| v as f64),
+            en_loc.elevation().map(|v| v as f64),
+            rec_id
+        ])?;
     }
 
     Ok(())

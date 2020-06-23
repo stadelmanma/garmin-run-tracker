@@ -10,7 +10,7 @@ pub struct Location {
     /// longitude coordinate in degrees
     longitude: f32,
     /// elevation in meters if available
-    elevation: Option<f32>
+    elevation: Option<f32>,
 }
 
 impl Location {
@@ -42,5 +42,8 @@ impl Location {
 /// trait that defines how elevation data should be added for an array of lat, long coordintes
 pub trait ElevationDataSource {
     /// Updates the array of locations with elevation data
-    fn request_elevation_data(&self, locations: &mut [Location]) -> Result<(), Box<dyn std::error::Error>>;
+    fn request_elevation_data(
+        &self,
+        locations: &mut [Location],
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
