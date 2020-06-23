@@ -1,5 +1,5 @@
 [package]
-name = "garmin-run-tracker"
+name = "garmin_run_tracker"
 version = "0.1.0"
 authors = ["Matthew Stadelman <stadelmanma@gmail.com>"]
 edition = "2018"
