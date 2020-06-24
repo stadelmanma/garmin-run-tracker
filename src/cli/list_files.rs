@@ -1,9 +1,9 @@
 //! Define the list-files subcommand
-use chrono::{DateTime, Local, NaiveDate};
-use crate::open_db_connection;
-use rusqlite::{NO_PARAMS, params, Result};
-use structopt::StructOpt;
 use super::parse_date;
+use crate::open_db_connection;
+use chrono::{DateTime, Local, NaiveDate};
+use rusqlite::{params, Result, NO_PARAMS};
+use structopt::StructOpt;
 
 /// List all files in the local database
 #[derive(Debug, StructOpt)]
@@ -17,11 +17,10 @@ pub struct ListFilesOpts {
     // TODO: output summary about files listed
 }
 
-
 pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error::Error>> {
     let conn = open_db_connection()?;
     let mut stmt;
-    let mut rows = if let Some(start_date)= opts.start_date {
+    let mut rows = if let Some(start_date) = opts.start_date {
         stmt = conn.prepare(
             "select time_created, device_manufacturer, device_product, uuid from files
                 where time_created between ? and ?
@@ -29,13 +28,11 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         )?;
         if let Some(end_date) = opts.end_date {
             stmt.query(params![start_date, end_date.and_hms(23, 59, 59)])?
-        }
-        else {
+        } else {
             // if no end date is provided return all for the given day
             stmt.query(params![start_date, start_date.and_hms(23, 59, 59)])?
         }
-    }
-    else {
+    } else {
         stmt = conn.prepare(
             "select time_created, device_manufacturer, device_product, uuid from files
                 order by time_created",
@@ -46,13 +43,23 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
     println!("Date, Device, UUID");
     while let Some(row) = rows.next()? {
         // make this a nicely formatted local time
-        let timestamp: DateTime::<Local> = row.get(0)?;
+        let timestamp: DateTime<Local> = row.get(0)?;
         // for some reason these are getting spit out as Blob instead of text
-        let manufacturer = row.get::<usize, Vec<u8>>(1).map(|v| String::from_utf8(v))??;
-        let product: String = row.get::<usize, Vec<u8>>(2).map(|v| String::from_utf8(v))??;
+        let manufacturer = row
+            .get::<usize, Vec<u8>>(1)
+            .map(|v| String::from_utf8(v))??;
+        let product: String = row
+            .get::<usize, Vec<u8>>(2)
+            .map(|v| String::from_utf8(v))??;
         let uuid: String = row.get(3)?;
 
-        println!("{} {}-{} ({})", timestamp.format("%Y-%m-%d %H:%M"), manufacturer, product, uuid);
+        println!(
+            "{} {}-{} ({})",
+            timestamp.format("%Y-%m-%d %H:%M"),
+            manufacturer,
+            product,
+            uuid
+        );
     }
 
     Ok(())

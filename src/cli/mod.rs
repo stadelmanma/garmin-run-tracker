@@ -1,11 +1,11 @@
 //! Define the application's command line interface
 use chrono::NaiveDate;
 use simplelog::LevelFilter;
-use structopt::StructOpt;
 use std::path::PathBuf;
+use structopt::StructOpt;
 
 mod list_files;
-pub use list_files::{ListFilesOpts, list_files_command};
+use list_files::{list_files_command, ListFilesOpts};
 
 /// Parse FIT formatted files and import their data into the local database
 #[derive(Debug, StructOpt)]
@@ -21,7 +21,7 @@ pub struct Cli {
     ignore_duplicate_files: bool,
     /// Additional commands beyond importing data
     #[structopt(subcommand)]
-    cmd: Option<Command>
+    cmd: Option<Command>,
 }
 
 impl Cli {
@@ -49,11 +49,8 @@ impl Cli {
     /// Consume options struct and return the result of subcommand execution
     pub fn execute_subcommand(self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(cmd) = self.cmd {
-            match cmd {
-                Command::Listfiles(opts) => list_files_command(opts)
-            }
-        }
-        else {
+            cmd.execute()
+        } else {
             // No subcommand to execute
             Ok(())
         }
@@ -67,6 +64,15 @@ pub enum Command {
     Listfiles(ListFilesOpts),
 }
 
+impl Command {
+    /// Consume enum variant and return the result of the command's execution
+    fn execute(self) -> Result<(), Box<dyn std::error::Error>> {
+        match self {
+            Command::Listfiles(opts) => list_files_command(opts),
+        }
+    }
+}
+
 fn parse_date(src: &str) -> Result<NaiveDate, chrono::format::ParseError> {
-    NaiveDate::parse_from_str(src , "%Y-%m-%d")
+    NaiveDate::parse_from_str(src, "%Y-%m-%d")
 }

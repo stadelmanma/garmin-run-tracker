@@ -6,7 +6,6 @@ use simplelog::{Config, TermLogger, TerminalMode};
 use std::fs::File;
 use structopt::StructOpt;
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Cli::from_args();
     let level_filter = opt.verbosity();
