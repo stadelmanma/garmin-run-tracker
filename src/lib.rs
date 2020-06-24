@@ -11,6 +11,7 @@ use std::io::prelude::*;
 use std::iter::FromIterator;
 use std::ops::Deref;
 
+pub mod cli;
 pub mod elevation;
 mod error;
 pub use elevation::{ElevationDataSource, Location};
