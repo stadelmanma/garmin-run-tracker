@@ -14,8 +14,10 @@ use std::ops::Deref;
 pub mod cli;
 pub mod elevation;
 mod error;
-pub use elevation::{ElevationDataSource, Location};
+pub use elevation::ElevationDataSource;
 pub use error::Error;
+mod gps;
+pub use gps::Location;
 mod schema;
 pub use schema::{create_database, open_db_connection};
 

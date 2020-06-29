@@ -1,6 +1,6 @@
 //! Import elevation data based on lat, long coordintes using the opentopodata API
-use super::{ElevationDataSource, Location};
-use crate::Error;
+use super::ElevationDataSource;
+use crate::{Error, Location};
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
@@ -55,7 +55,7 @@ impl ElevationDataSource for OpenTopoData {
         for chunk in locations.chunks_mut(self.batch_size) {
             let loc_params: String = chunk
                 .iter()
-                .map(|l| format!("{0:.6},{1:.6}", l.latitude, l.longitude))
+                .map(|l| format!("{0:.6},{1:.6}", l.latitude(), l.longitude()))
                 .collect::<Vec<String>>()
                 .join("|");
             let resp = client
@@ -69,7 +69,7 @@ impl ElevationDataSource for OpenTopoData {
                     .iter_mut()
                     .zip(json.results.into_iter().map(|r| r.elevation))
                 {
-                    loc.elevation = elevation;
+                    loc.set_elevation(elevation);
                 }
             } else {
                 // parse error response to get reason why the request failed
