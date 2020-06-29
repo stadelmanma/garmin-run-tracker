@@ -20,6 +20,7 @@ mod gps;
 pub use gps::Location;
 mod schema;
 pub use schema::{create_database, open_db_connection};
+pub mod visualization;
 
 /// Acts as a pointer to a Value variant that can be used in parameterized sql statements
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
