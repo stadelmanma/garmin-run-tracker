@@ -6,6 +6,8 @@ use structopt::StructOpt;
 
 mod list_files;
 use list_files::{list_files_command, ListFilesOpts};
+mod route_image;
+use route_image::{route_image_command, RouteImageOpts};
 
 /// Parse FIT formatted files and import their data into the local database
 #[derive(Debug, StructOpt)]
@@ -62,6 +64,8 @@ pub enum Command {
     /// List files stored in the database
     #[structopt(name = "list-files")]
     Listfiles(ListFilesOpts),
+    #[structopt(name = "route-image")]
+    RouteImage(RouteImageOpts),
 }
 
 impl Command {
@@ -69,6 +73,7 @@ impl Command {
     fn execute(self) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Command::Listfiles(opts) => list_files_command(opts),
+            Command::RouteImage(opts) => route_image_command(opts),
         }
     }
 }
