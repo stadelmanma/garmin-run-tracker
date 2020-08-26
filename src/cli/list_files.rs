@@ -225,9 +225,8 @@ fn collect_lap_stats(
             lap_data.insert(curr_id, file_stats);
             file_stats = Vec::new();
             curr_id = file_id;
-        } else {
-            file_stats.push(lap_stats);
         }
+        file_stats.push(lap_stats);
     }
     // catch last iteration which gets missed by conditional
     lap_data.insert(curr_id, file_stats);
