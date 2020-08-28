@@ -94,6 +94,13 @@ need to be wary of rate limiting. The current code implementation makes
 no effort to "delay" requests to obey API guidelines since it's not
 necessary for a locally hosted version.
 
+### Static Route Images
+
+Static route images are generated using third party services that provide
+map tiles and/or route plotting capabilities. This code was developed using
+a locally hosted instance of [openmaptiles](https://openmaptiles.org/).
+
+
 ### Future
 
 Additional features are being considered/planned out, such as:
@@ -101,4 +108,8 @@ Additional features are being considered/planned out, such as:
  * Output other aggregate data like weekly mileage
  * Create static route map images using the lat/long positions
  * Add data plotting capabilities
+ * Allow elevation data to be updated after file import if desired
+ * Allow runs to be labeled/named, i.e. "morgantown marathon" this should
+   be unique
+ * Allow comments on runs
  * ...
