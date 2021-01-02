@@ -1,7 +1,7 @@
 //! Access elevation data for a given GPS location using an external source
 use super::db::QueryStringBuilder;
 use crate::{open_db_connection, Error, Location};
-use log::error;
+use log::{error, info};
 use rusqlite::params;
 
 mod opentopodata;
@@ -20,6 +20,7 @@ pub trait ElevationDataSource {
 pub fn update_elevation_data<T: ElevationDataSource>(
     src: &T,
     uuid: Option<&str>,
+    overwrite: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
@@ -34,6 +35,10 @@ pub fn update_elevation_data<T: ElevationDataSource>(
     lap_query
         .and_where("start_position_lat is not null")
         .and_where("start_position_long is not null");
+    if !overwrite {
+        rec_query.and_where("elevation is null");
+        lap_query.and_where("start_elevation is null");
+    }
 
     // filter by UUID if one was defined
     let mut file_id: Option<i32> = None;
@@ -55,14 +60,26 @@ pub fn update_elevation_data<T: ElevationDataSource>(
         .as_ref()
         .map_or(Vec::new(), |v| vec![v as &dyn rusqlite::ToSql]);
     let mut stmt = tx.prepare(&rec_query.to_string())?;
-    stmt.query(&params)
-        .map(|rows| add_record_elevation_data(src, &tx, rows))?;
+    let nrows = stmt
+        .query(&params)
+        .map(|rows| add_record_elevation_data(src, &tx, rows))??; // we have nested results here
     stmt.finalize()?; // appease borrow checker
+    info!(
+        "Set location data for {} record messages{}",
+        nrows,
+        uuid.map_or(String::new(), |v| format!(" in file {}", v))
+    );
 
     let mut stmt = tx.prepare(&lap_query.to_string())?;
-    stmt.query(&params)
-        .map(|rows| add_lap_elevation_data(src, &tx, rows))?;
+    let nrows = stmt
+        .query(&params)
+        .map(|rows| add_lap_elevation_data(src, &tx, rows))??;
     stmt.finalize()?; // appease borrow checker
+    info!(
+        "Set location data for {} lap messages{}",
+        nrows,
+        uuid.map_or(String::new(), |v| format!(" in file {}", v))
+    );
 
     tx.commit()?;
     Ok(())
@@ -74,7 +91,7 @@ fn add_record_elevation_data<T: ElevationDataSource>(
     src: &T,
     tx: &rusqlite::Transaction,
     mut rows: rusqlite::Rows,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<usize, Box<dyn std::error::Error>> {
     let mut locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
     while let Some(row) = rows.next()? {
@@ -88,7 +105,7 @@ fn add_record_elevation_data<T: ElevationDataSource>(
         stmt.execute(params![loc.elevation().map(|v| v as f64), rec_id])?;
     }
 
-    Ok(())
+    Ok(locations.len())
 }
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
@@ -97,7 +114,7 @@ fn add_lap_elevation_data<T: ElevationDataSource>(
     src: &T,
     tx: &rusqlite::Transaction,
     mut rows: rusqlite::Rows,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<usize, Box<dyn std::error::Error>> {
     let mut st_locations: Vec<Location> = Vec::new();
     let mut en_locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
@@ -110,7 +127,7 @@ fn add_lap_elevation_data<T: ElevationDataSource>(
     src.request_elevation_data(&mut en_locations)?;
 
     let mut stmt = tx.prepare_cached(
-        "update lap_messages set start_elevation = ?, end_elevation =? where id = ?",
+        "update lap_messages set start_elevation = ?, end_elevation = ? where id = ?",
     )?;
     for ((st_loc, en_loc), rec_id) in st_locations.iter().zip(en_locations).zip(record_ids) {
         stmt.execute(params![
@@ -120,5 +137,5 @@ fn add_lap_elevation_data<T: ElevationDataSource>(
         ])?;
     }
 
-    Ok(())
+    Ok(st_locations.len())
 }

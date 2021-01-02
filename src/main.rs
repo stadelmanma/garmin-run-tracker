@@ -55,7 +55,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Successfully imported FIT file: {:?} (UUID={})",
             &file, &uuid
         );
-        if let Err(e) = update_elevation_data(&topo, Some(&uuid)) {
+        // add elevation data if possible, we overwrite here on the assumption that API is
+        // more accurate value than the device.
+        if let Err(e) = update_elevation_data(&topo, Some(&uuid), true) {
             error!(
                 "Could not import elevation data from the API for FIT file '{}'",
                 &uuid
@@ -64,6 +66,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             info!("Successfully imported elevation for FIT file '{}'", &uuid);
         }
+    }
+
+    // update missing elevation data in database, we'll hard error here if this fails since
+    // the task was requested directly, overwrite = false to only hit missed values
+    if opt.fix_missing_elevation() {
+        update_elevation_data(&topo, None, false)?;
     }
 
     // execute any subcommands

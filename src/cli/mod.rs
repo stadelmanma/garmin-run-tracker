@@ -21,6 +21,9 @@ pub struct Cli {
     /// Silently ignore duplicate files and emit no messages
     #[structopt(long)]
     ignore_duplicate_files: bool,
+    /// Attempt to pull elevation data for rows in the database that are currently NULL
+    #[structopt(long)]
+    fix_missing_elevation: bool,
     /// Additional commands beyond importing data
     #[structopt(subcommand)]
     cmd: Option<Command>,
@@ -46,6 +49,10 @@ impl Cli {
 
     pub fn ignore_duplicate_files(&self) -> bool {
         self.ignore_duplicate_files
+    }
+
+    pub fn fix_missing_elevation(&self) -> bool {
+        self.fix_missing_elevation
     }
 
     /// Consume options struct and return the result of subcommand execution
