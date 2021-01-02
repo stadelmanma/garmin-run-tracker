@@ -1,4 +1,5 @@
 //! Access elevation data for a given GPS location using an external source
+use super::db::QueryStringBuilder;
 use crate::{open_db_connection, Error, Location};
 use log::error;
 use rusqlite::params;
@@ -18,35 +19,50 @@ pub trait ElevationDataSource {
 /// Update elevation for a FIT file or across all data in the database
 pub fn update_elevation_data<T: ElevationDataSource>(
     src: &T,
-    uuid: &str,
+    uuid: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut conn = open_db_connection()?;
     let tx = conn.transaction()?;
 
-    if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| {
-        r.get::<usize, i32>(0)
-    }) {
-        // first add elevation data for the record messages
-        let mut stmt = tx.prepare(
-            "select position_lat, position_long, id from record_messages where
-                                     file_id = ? and
-                                     position_lat is not null and
-                                     position_long is not null",
-        )?;
-        let rows = stmt.query(params![id])?;
-        add_record_elevation_data(src, &tx, rows)?;
+    // setup base queries
+    let mut rec_query =
+        QueryStringBuilder::new("select position_lat, position_long, id from record_messages");
+    rec_query
+        .and_where("position_lat is not null")
+        .and_where("position_long is not null");
+    let mut lap_query = QueryStringBuilder::new("select start_position_lat, start_position_long, end_position_lat, end_position_long, id from lap_messages");
+    lap_query
+        .and_where("start_position_lat is not null")
+        .and_where("start_position_long is not null");
 
-        // next add in elevation data for lap messages
-        let mut stmt = tx.prepare("select start_position_lat, start_position_long, end_position_lat, end_position_long, id from lap_messages where
-                                     file_id = ? and
-                                     start_position_lat is not null and
-                                     start_position_long is not null")?;
-        let rows = stmt.query(params![id])?;
-        add_lap_elevation_data(src, &tx, rows)?;
-    } else {
-        error!("FIT File with UUID='{}' does not exist", uuid);
-        return Err(Box::new(Error::FileDoesNotExistError(uuid.to_string())));
+    // filter by UUID if one was defined
+    let mut file_id: Option<i32> = None;
+    if let Some(uuid) = uuid {
+        if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| {
+            r.get::<usize, i32>(0)
+        }) {
+            file_id = Some(id);
+            rec_query.and_where("file_id = ?");
+            lap_query.and_where("file_id = ?");
+        } else {
+            error!("FIT File with UUID='{}' does not exist", uuid);
+            return Err(Box::new(Error::FileDoesNotExistError(uuid.to_string())));
+        }
     }
+
+    // fetch and save elevation data for record and lap messages
+    let params: Vec<&dyn rusqlite::ToSql> = file_id
+        .as_ref()
+        .map_or(Vec::new(), |v| vec![v as &dyn rusqlite::ToSql]);
+    let mut stmt = tx.prepare(&rec_query.to_string())?;
+    stmt.query(&params)
+        .map(|rows| add_record_elevation_data(src, &tx, rows))?;
+    stmt.finalize()?; // appease borrow checker
+
+    let mut stmt = tx.prepare(&lap_query.to_string())?;
+    stmt.query(&params)
+        .map(|rows| add_lap_elevation_data(src, &tx, rows))?;
+    stmt.finalize()?; // appease borrow checker
 
     tx.commit()?;
     Ok(())
@@ -67,8 +83,7 @@ fn add_record_elevation_data<T: ElevationDataSource>(
     }
     src.request_elevation_data(&mut locations)?;
 
-    let stmt = format!("update record_messages set elevation = ? where id = ?");
-    let mut stmt = tx.prepare_cached(&stmt)?;
+    let mut stmt = tx.prepare_cached("update record_messages set elevation = ? where id = ?")?;
     for (loc, rec_id) in locations.iter().zip(record_ids) {
         stmt.execute(params![loc.elevation().map(|v| v as f64), rec_id])?;
     }
@@ -94,9 +109,9 @@ fn add_lap_elevation_data<T: ElevationDataSource>(
     src.request_elevation_data(&mut st_locations)?;
     src.request_elevation_data(&mut en_locations)?;
 
-    let stmt =
-        format!("update lap_messages set start_elevation = ?, end_elevation =? where id = ?");
-    let mut stmt = tx.prepare_cached(&stmt)?;
+    let mut stmt = tx.prepare_cached(
+        "update lap_messages set start_elevation = ?, end_elevation =? where id = ?",
+    )?;
     for ((st_loc, en_loc), rec_id) in st_locations.iter().zip(en_locations).zip(record_ids) {
         stmt.execute(params![
             st_loc.elevation().map(|v| v as f64),

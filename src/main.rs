@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Successfully imported FIT file: {:?} (UUID={})",
             &file, &uuid
         );
-        if let Err(e) = update_elevation_data(&topo, &uuid) {
+        if let Err(e) = update_elevation_data(&topo, Some(&uuid)) {
             error!(
                 "Could not import elevation data from the API for FIT file '{}'",
                 &uuid

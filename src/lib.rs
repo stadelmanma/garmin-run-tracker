@@ -18,8 +18,8 @@ pub use elevation::{update_elevation_data, ElevationDataSource};
 pub use error::Error;
 mod gps;
 pub use gps::Location;
-mod schema;
-pub use schema::{create_database, open_db_connection};
+mod db;
+pub use db::{create_database, open_db_connection};
 pub mod visualization;
 
 /// Acts as a pointer to a Value variant that can be used in parameterized sql statements
