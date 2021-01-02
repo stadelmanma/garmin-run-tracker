@@ -1,6 +1,6 @@
+use super::{db_path, open_db_connection};
 use log::debug;
 use rusqlite::{params, Result};
-use super::{db_path, open_db_connection};
 
 /// Create the database and required tables
 pub fn create_database() -> Result<()> {
