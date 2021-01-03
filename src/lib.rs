@@ -67,7 +67,10 @@ impl ToSql for SqlValue<'_> {
             Value::UInt64z(val) => Ok(ToSqlOutput::from(*val as i64)),
             Value::Float32(val) => Ok(ToSqlOutput::from(*val as f64)),
             Value::Float64(val) => Ok(ToSqlOutput::from(*val)),
-            Value::String(val) => Ok(ToSqlOutput::Borrowed(val.as_bytes().into())),
+            // treating this as bytes causes it to be a Blob on query, even though the column is text
+            Value::String(val) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
+                val.to_string(),
+            ))),
             Value::Array(_) => Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
                 Error::ArrayConversionError,
             ))),
