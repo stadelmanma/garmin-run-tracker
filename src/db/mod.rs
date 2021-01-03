@@ -14,6 +14,7 @@ static DATABASE_NAME: &str = "garmin-run-tracker.db";
 pub struct QueryStringBuilder<'q> {
     base_query: &'q str,
     where_clauses: Vec<&'q str>,
+    order_by: Vec<&'q str>,
 }
 
 impl<'q> QueryStringBuilder<'q> {
@@ -21,11 +22,17 @@ impl<'q> QueryStringBuilder<'q> {
         QueryStringBuilder {
             base_query,
             where_clauses: Vec::new(),
+            order_by: Vec::new(),
         }
     }
 
     pub fn and_where(&mut self, clause: &'q str) -> &mut Self {
         self.where_clauses.push(clause);
+        self
+    }
+
+    pub fn order_by(&mut self, clause: &'q str) -> &mut Self {
+        self.order_by.push(clause);
         self
     }
 }
@@ -40,7 +47,15 @@ impl<'q> fmt::Display for QueryStringBuilder<'q> {
                 .iter()
                 .fold(base, |b, c| format!("{} and {}", b, c))
         };
-        write!(f, "{}{}", self.base_query, where_clause)
+        let order_by = if self.order_by.is_empty() {
+            String::new()
+        } else {
+            let base = format!(" order by {}", self.order_by[0]);
+            self.order_by[1..]
+                .iter()
+                .fold(base, |b, c| format!("{}, {}", b, c))
+        };
+        write!(f, "{}{}{}", self.base_query, where_clause, order_by)
     }
 }
 
