@@ -1,81 +1,104 @@
 //! Define the list-files subcommand
 use super::parse_date;
-use crate::open_db_connection;
+use crate::db::{open_db_connection, QueryStringBuilder};
 use chrono::{DateTime, Local, NaiveDate};
 use rusqlite::{params, Connection, Result, NO_PARAMS};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use structopt::StructOpt;
 
 /// List all files in the local database
 #[derive(Debug, StructOpt)]
 pub struct ListFilesOpts {
-    /// Date to list files for, or the start date if an end date is used (YYYY-MM-DD format)
-    #[structopt(name = "DATE", parse(try_from_str = parse_date))]
-    start_date: Option<NaiveDate>,
-    /// End of date range to list files for (YYYY-MM-DD format)
-    #[structopt(name = "END_DATE", parse(try_from_str = parse_date))]
-    end_date: Option<NaiveDate>,
     /// Output per file statistics
     #[structopt(short, long)]
     stat: bool,
+    /// List files after the specified date (YYYY-MM-DD format)
+    #[structopt(short="-S", long, parse(try_from_str = parse_date))]
+    since: Option<NaiveDate>,
+    /// List files before the specified date (YYYY-MM-DD format)
+    #[structopt(short="-U", long, parse(try_from_str = parse_date))]
+    until: Option<NaiveDate>,
+    /// Reverse file ordering to be new -> old
+    #[structopt(short, long)]
+    reverse: bool,
+    /// Limit results returned to "N" entries
+    #[structopt(short, long)]
+    number: Option<usize>,
+}
+
+struct FileInfo {
+    id: i32,
+    manufacturer: String,
+    product: String,
+    timestamp: DateTime<Local>,
+    uuid: String,
+}
+
+impl TryFrom<&'_ rusqlite::Row<'_>> for FileInfo {
+    type Error = rusqlite::Error;
+
+    fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
+        let (id, manufacturer, product, timestamp, uuid) = TryFrom::try_from(row)?;
+
+        Ok(FileInfo {
+            id,
+            manufacturer,
+            product,
+            timestamp,
+            uuid,
+        })
+    }
 }
 
 pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error::Error>> {
     let conn = open_db_connection()?;
 
+    // collect all the files we are interested in
+    let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+    let mut query = QueryStringBuilder::new(
+        "select id, device_manufacturer, device_product, time_created, uuid from files",
+    );
+    if let Some(start_date) = opts.since.as_ref() {
+        query.and_where("time_created >= ?");
+        params.push(start_date as &dyn rusqlite::ToSql);
+    }
+    if let Some(end_date) = opts.until.as_ref() {
+        query.and_where("time_created < ?");
+        params.push(end_date as &dyn rusqlite::ToSql);
+    }
+    if opts.reverse {
+        query.order_by("time_created DESC");
+    } else {
+        query.order_by("time_created ASC");
+    }
+    if let Some(value) = opts.number {
+        query.limit(value);
+    }
+    let mut stmt = conn.prepare(&query.to_string())?;
+    let rows = stmt.query_map(&params, |row| FileInfo::try_from(row))?;
+    let files = rows.into_iter().collect::<Result<Vec<FileInfo>>>()?;
+
     // grab aggregrate and lap stats
     let (agg_data, lap_data) = if opts.stat {
         (
-            collect_aggregate_stats(&conn, opts.start_date.as_ref(), opts.end_date.as_ref())?,
-            collect_lap_stats(&conn, opts.start_date.as_ref(), opts.end_date.as_ref())?,
+            collect_aggregate_stats(&conn, opts.since.as_ref(), opts.until.as_ref())?,
+            collect_lap_stats(&conn, opts.since.as_ref(), opts.until.as_ref())?,
         )
     } else {
         (HashMap::new(), HashMap::new())
     };
 
-    // get actual file info rows
-    let mut stmt;
-    let mut rows = if let Some(start_date) = opts.start_date {
-        stmt = conn.prepare(
-            "select time_created, device_manufacturer, device_product, uuid, id from files
-                where time_created between ? and ?
-                order by time_created",
-        )?;
-        if let Some(end_date) = opts.end_date {
-            stmt.query(params![start_date, end_date.and_hms(23, 59, 59)])?
-        } else {
-            // if no end date is provided return all for the given day
-            stmt.query(params![start_date, start_date.and_hms(23, 59, 59)])?
-        }
-    } else {
-        stmt = conn.prepare(
-            "select time_created, device_manufacturer, device_product, uuid, id from files
-                order by time_created",
-        )?;
-        stmt.query(NO_PARAMS)?
-    };
-
     println!("Date, Device, UUID");
-    while let Some(row) = rows.next()? {
-        // make this a nicely formatted local time
-        let timestamp: DateTime<Local> = row.get(0)?;
-        // for some reason these are getting spit out as Blob instead of text
-        let manufacturer = row
-            .get::<usize, Vec<u8>>(1)
-            .map(|v| String::from_utf8(v))??;
-        let product: String = row
-            .get::<usize, Vec<u8>>(2)
-            .map(|v| String::from_utf8(v))??;
-        let uuid: String = row.get(3)?;
-
+    for file in files {
         println!(
             "{} {}-{} ({})",
-            timestamp.format("%Y-%m-%d %H:%M"),
-            manufacturer,
-            product,
-            uuid
+            file.timestamp.format("%Y-%m-%d %H:%M"),
+            file.manufacturer,
+            file.product,
+            file.uuid
         );
-        if let Some(data) = agg_data.get(&row.get("id")?) {
+        if let Some(data) = agg_data.get(&file.id) {
             println!(
                 "\t Distance: {:0.2} miles, Time: {:3}:{:02.0}, \
                      Pace: {:2}:{:02.0}, Heart Rate: {:0.0}bpm",
@@ -87,7 +110,7 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
                 data["avg_heart_rate"]
             );
         }
-        if let Some(data) = lap_data.get(&row.get("id")?) {
+        if let Some(data) = lap_data.get(&file.id) {
             for (i, lap) in data.iter().enumerate() {
                 println!(
                     "\t * Lap {:02} - {:0.2} miles, Time: {:3}:{:02.0}, Heart Rate: {:0.0}bpm",
