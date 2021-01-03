@@ -15,6 +15,7 @@ pub struct QueryStringBuilder<'q> {
     base_query: &'q str,
     where_clauses: Vec<&'q str>,
     order_by: Vec<&'q str>,
+    limit: Option<usize>,
 }
 
 impl<'q> QueryStringBuilder<'q> {
@@ -23,6 +24,7 @@ impl<'q> QueryStringBuilder<'q> {
             base_query,
             where_clauses: Vec::new(),
             order_by: Vec::new(),
+            limit: None,
         }
     }
 
@@ -33,6 +35,11 @@ impl<'q> QueryStringBuilder<'q> {
 
     pub fn order_by(&mut self, clause: &'q str) -> &mut Self {
         self.order_by.push(clause);
+        self
+    }
+
+    pub fn limit(&mut self, value: usize) -> &mut Self {
+        self.limit = Some(value);
         self
     }
 }
@@ -55,7 +62,16 @@ impl<'q> fmt::Display for QueryStringBuilder<'q> {
                 .iter()
                 .fold(base, |b, c| format!("{}, {}", b, c))
         };
-        write!(f, "{}{}{}", self.base_query, where_clause, order_by)
+        let limit = if let Some(value) = self.limit {
+            format!(" limit {}", value)
+        } else {
+            String::new()
+        };
+        write!(
+            f,
+            "{}{}{}{}",
+            self.base_query, where_clause, order_by, limit
+        )
     }
 }
 
