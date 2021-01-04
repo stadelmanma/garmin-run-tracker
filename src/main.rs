@@ -57,6 +57,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         // add elevation data if possible, we overwrite here on the assumption that API is
         // more accurate value than the device.
+        info!(
+            "Attempting to update elevation data for FIT file: {:?} (UUID={})...",
+            &file, &uuid
+        );
         if let Err(e) = update_elevation_data(&topo, Some(&uuid), true) {
             error!(
                 "Could not import elevation data from the API for FIT file '{}'",
