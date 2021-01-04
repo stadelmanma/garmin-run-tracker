@@ -9,6 +9,7 @@ pub enum Error {
     DuplicateFileError(String),
     ElevationRequestError(reqwest::StatusCode, String),
     FileDoesNotExistError(String),
+    FileIdMessageNotFound(String),
     FitParser(fitparser::ErrorKind),
     Io(std::io::Error),
     Other(String),
@@ -58,6 +59,11 @@ impl fmt::Display for Error {
             Error::FileDoesNotExistError(uuid) => {
                 write!(f, "FIT File with UUID='{}' does not exist", uuid)
             }
+            Error::FileIdMessageNotFound(uuid) => write!(
+                f,
+                "FIT File with UUID='{}' did not have a File_id message",
+                uuid
+            ),
             Error::FitParser(e) => write!(f, "{}", e),
             Error::Io(e) => write!(f, "{}", e),
             Error::Other(msg) => write!(f, "{}", msg),
