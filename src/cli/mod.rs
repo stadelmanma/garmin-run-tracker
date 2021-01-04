@@ -15,15 +15,18 @@ pub struct Cli {
     /// FIT files to import
     #[structopt(name = "FILE", parse(from_os_str))]
     files: Vec<PathBuf>,
-    /// A level of verbosity, and can be used up to three times for maximum logging (e.g. -vvv)
+    /// Set logging level to debug, use a second time (e.g. -vv) to set logging to trace
     #[structopt(short, long, parse(from_occurrences))]
     verbose: i32,
-    /// Suppress warning messages
-    #[structopt(short, long)]
-    quiet: bool,
+    /// Suppress info logging messages use a second time (e.g. -qq) to hide warnings
+    #[structopt(short, long, parse(from_occurrences))]
+    quiet: i32,
     /// Attempt to pull elevation data for rows in the database that are currently NULL
     #[structopt(long)]
     fix_missing_elevation: bool,
+    /// Do not copy imported FIT files into the devices directory
+    #[structopt(long)]
+    no_copy: bool,
     /// Additional commands beyond importing data
     #[structopt(subcommand)]
     cmd: Option<Command>,
@@ -36,21 +39,17 @@ impl Cli {
 
     /// Return the verbose flag counts as a log level filter
     pub fn verbosity(&self) -> LevelFilter {
-        if self.quiet {
+        if self.quiet == 1 {
+            LevelFilter::Warn
+        } else if self.quiet > 1 {
             LevelFilter::Error
         } else if self.verbose == 1 {
-            LevelFilter::Info
-        } else if self.verbose == 2 {
             LevelFilter::Debug
-        } else if self.verbose > 2 {
+        } else if self.verbose == 2 {
             LevelFilter::Trace
         } else {
-            LevelFilter::Warn
+            LevelFilter::Info
         }
-    }
-
-    pub fn quiet(&self) -> bool {
-        self.quiet
     }
 
     pub fn fix_missing_elevation(&self) -> bool {
