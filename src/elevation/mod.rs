@@ -1,7 +1,7 @@
 //! Access elevation data for a given GPS location using an external source
 use super::db::QueryStringBuilder;
 use crate::{open_db_connection, Error, Location};
-use log::{error, info};
+use log::{debug, error};
 use rusqlite::params;
 
 mod opentopodata;
@@ -64,10 +64,10 @@ pub fn update_elevation_data<T: ElevationDataSource>(
         .query(&params)
         .map(|rows| add_record_elevation_data(src, &tx, rows))??; // we have nested results here
     stmt.finalize()?; // appease borrow checker
-    info!(
+    debug!(
         "Set location data for {} record messages{}",
         nrows,
-        uuid.map_or(String::new(), |v| format!(" in file {}", v))
+        uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
     );
 
     let mut stmt = tx.prepare(&lap_query.to_string())?;
@@ -75,10 +75,10 @@ pub fn update_elevation_data<T: ElevationDataSource>(
         .query(&params)
         .map(|rows| add_lap_elevation_data(src, &tx, rows))??;
     stmt.finalize()?; // appease borrow checker
-    info!(
+    debug!(
         "Set location data for {} lap messages{}",
         nrows,
-        uuid.map_or(String::new(), |v| format!(" in file {}", v))
+        uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
     );
 
     tx.commit()?;
