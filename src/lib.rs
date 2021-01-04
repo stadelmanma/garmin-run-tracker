@@ -10,6 +10,7 @@ use std::fmt;
 use std::io::prelude::*;
 use std::iter::FromIterator;
 use std::ops::Deref;
+use std::path::PathBuf;
 
 pub mod cli;
 pub mod elevation;
@@ -21,6 +22,8 @@ pub use gps::Location;
 mod db;
 pub use db::{create_database, open_db_connection};
 pub mod visualization;
+
+static DIRECTORY_NAME: &str = "garmin-run-tracker";
 
 /// Acts as a pointer to a Value variant that can be used in parameterized sql statements
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -76,6 +79,16 @@ impl ToSql for SqlValue<'_> {
             ))),
         }
     }
+}
+
+pub fn data_dir() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or(PathBuf::new())
+        .join(DIRECTORY_NAME)
+}
+
+pub fn devices_dir() -> PathBuf {
+    data_dir().join("devices")
 }
 
 /// Import raw fit file data into the local database

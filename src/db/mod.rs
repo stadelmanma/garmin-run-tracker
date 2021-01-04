@@ -1,5 +1,5 @@
 //! Database utility functions and the schema definition
-use dirs;
+use crate::data_dir;
 use log::debug;
 use rusqlite::{Connection, Result};
 use std::fmt;
@@ -84,7 +84,5 @@ pub fn open_db_connection() -> Result<Connection> {
 }
 
 pub fn db_path() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or(PathBuf::new())
-        .join(DATABASE_NAME)
+    data_dir().join(DATABASE_NAME)
 }
