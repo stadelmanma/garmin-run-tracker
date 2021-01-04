@@ -312,7 +312,7 @@ fn generate_uuid(data: &[u8]) -> String {
 }
 
 /// Build a hash map of field references that can be acessed by field name
-pub fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlValue> {
+fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlValue> {
     HashMap::from_iter(
         mesg.fields()
             .iter()
