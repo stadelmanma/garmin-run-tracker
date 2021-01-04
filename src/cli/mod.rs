@@ -18,9 +18,9 @@ pub struct Cli {
     /// A level of verbosity, and can be used up to three times for maximum logging (e.g. -vvv)
     #[structopt(short, long, parse(from_occurrences))]
     verbose: i32,
-    /// Silently ignore duplicate files and emit no messages
-    #[structopt(long)]
-    ignore_duplicate_files: bool,
+    /// Suppress warning messages
+    #[structopt(short, long)]
+    quiet: bool,
     /// Attempt to pull elevation data for rows in the database that are currently NULL
     #[structopt(long)]
     fix_missing_elevation: bool,
@@ -36,7 +36,9 @@ impl Cli {
 
     /// Return the verbose flag counts as a log level filter
     pub fn verbosity(&self) -> LevelFilter {
-        if self.verbose == 1 {
+        if self.quiet {
+            LevelFilter::Error
+        } else if self.verbose == 1 {
             LevelFilter::Info
         } else if self.verbose == 2 {
             LevelFilter::Debug
@@ -47,8 +49,8 @@ impl Cli {
         }
     }
 
-    pub fn ignore_duplicate_files(&self) -> bool {
-        self.ignore_duplicate_files
+    pub fn quiet(&self) -> bool {
+        self.quiet
     }
 
     pub fn fix_missing_elevation(&self) -> bool {

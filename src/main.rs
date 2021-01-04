@@ -33,15 +33,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // handle various errors
                 match &e {
                     Error::DuplicateFileError(_) => {
-                        if opt.ignore_duplicate_files() {
-                            trace!("{}", e);
-                            continue;
-                        } else if opt.files().len() == 1 {
+                        if opt.files().len() == 1 {
                             // if we are importing a single file and it's a dupe throw a hard error
                             error!("{}", e);
                             return Err(Box::new(e));
                         } else {
-                            // if we are impoting multiple files, just warn about the dupe
+                            // if we are importing multiple files, just warn about the dupe
                             warn!("{}", e);
                             continue;
                         }
