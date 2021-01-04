@@ -56,6 +56,10 @@ impl Cli {
         self.fix_missing_elevation
     }
 
+    pub fn no_copy(&self) -> bool {
+        self.no_copy
+    }
+
     /// Consume options struct and return the result of subcommand execution
     pub fn execute_subcommand(self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(cmd) = self.cmd {
