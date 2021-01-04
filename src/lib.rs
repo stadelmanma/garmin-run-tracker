@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Local, TimeZone, Utc};
 use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
 use log::{debug, trace};
@@ -6,6 +6,7 @@ use rusqlite::types::ToSqlOutput;
 use rusqlite::{params, ToSql};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
 use std::io::prelude::*;
 use std::iter::FromIterator;
@@ -81,6 +82,58 @@ impl ToSql for SqlValue<'_> {
     }
 }
 
+/// Contains basic information about a single FIT file, if the file is chained this struct
+/// will get updated to the last file in the chain.
+pub struct FileInfo {
+    id: Option<i32>,
+    manufacturer: String,
+    product: String,
+    timestamp: DateTime<Local>,
+    uuid: String,
+}
+
+impl FileInfo {
+    /// Return row_id in the database for this file
+    pub fn id(&self) -> Option<i32> {
+        self.id
+    }
+
+    /// Return manufacturer field if set
+    pub fn manufacturer(&self) -> &str {
+        &self.manufacturer
+    }
+
+    /// Return product field if set
+    pub fn product(&self) -> &str {
+        &self.product
+    }
+
+    pub fn timestamp(&self) -> &DateTime<Local> {
+        &self.timestamp
+    }
+
+    /// Return UUID generated from this file's byte stream
+    pub fn uuid(&self) -> &str {
+        &self.uuid
+    }
+}
+
+impl TryFrom<&'_ rusqlite::Row<'_>> for FileInfo {
+    type Error = rusqlite::Error;
+
+    fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
+        let (id, manufacturer, product, timestamp, uuid) = TryFrom::try_from(row)?;
+
+        Ok(FileInfo {
+            id,
+            manufacturer,
+            product,
+            timestamp,
+            uuid,
+        })
+    }
+}
+
 pub fn data_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or(PathBuf::new())
@@ -92,7 +145,7 @@ pub fn devices_dir() -> PathBuf {
 }
 
 /// Import raw fit file data into the local database
-pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Error> {
+pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
     let mut data = Vec::new();
     fp.read_to_end(&mut data)?;
 
@@ -116,11 +169,14 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Error> {
     // before it are disregarded.
     let tx = conn.transaction()?;
     let mut file_rec_id = None;
+    let mut file_info = None;
     for mesg in messages {
         let data = create_fit_data_map(&mesg);
         match mesg.kind() {
             MesgNum::FileId => {
                 // insert new file record into db and set file_rec_id to the row id
+                // this message must exist before any others since there is a NULL constraint
+                // on the file_id column in the lap and record tables
                 let mut stmt = tx.prepare_cached(
                     "insert into files (type,
                                         device_manufacturer,
@@ -138,7 +194,24 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Error> {
                     data.get("time_created"),
                     uuid,
                 ])?;
-                file_rec_id = Some(tx.last_insert_rowid());
+                let timestamp =
+                    if let Some(SqlValue(Value::Timestamp(v))) = data.get("time_created") {
+                        v.clone()
+                    } else {
+                        Local.timestamp(0, 0)
+                    };
+                file_rec_id = Some(tx.last_insert_rowid() as i32);
+                file_info = Some(FileInfo {
+                    id: file_rec_id,
+                    manufacturer: data
+                        .get("manufacturer")
+                        .map_or(String::new(), |v| v.to_string()),
+                    product: data
+                        .get("garmin_product")
+                        .map_or(String::new(), |v| v.to_string()),
+                    timestamp,
+                    uuid: uuid.clone(),
+                });
                 debug!("Processed and stored file_id message with data: {:?}", data)
             }
             MesgNum::Lap => {
@@ -202,7 +275,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<String, Error> {
     }
     // commit transaction to store data imported from file
     tx.commit()?;
-    Ok(uuid)
+    file_info.ok_or(Error::FileIdMessageNotFound(uuid))
 }
 
 /// Create a UUID by taking the SHA256 hash of the data and then converting it to UUID4 format
