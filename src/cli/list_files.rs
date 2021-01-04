@@ -1,6 +1,7 @@
 //! Define the list-files subcommand
 use super::parse_date;
 use crate::db::{open_db_connection, QueryStringBuilder};
+use crate::FileInfo;
 use chrono::{DateTime, Local, NaiveDate};
 use rusqlite::types::Value;
 use rusqlite::{params, Connection, Result};
@@ -29,37 +30,13 @@ pub struct ListFilesOpts {
     number: Option<usize>,
 }
 
-struct FileInfo {
-    id: i32,
-    manufacturer: String,
-    product: String,
-    timestamp: DateTime<Local>,
-    uuid: String,
-}
-
-impl TryFrom<&'_ rusqlite::Row<'_>> for FileInfo {
-    type Error = rusqlite::Error;
-
-    fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
-        let (id, manufacturer, product, timestamp, uuid) = TryFrom::try_from(row)?;
-
-        Ok(FileInfo {
-            id,
-            manufacturer,
-            product,
-            timestamp,
-            uuid,
-        })
-    }
-}
-
 pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error::Error>> {
     let conn = open_db_connection()?;
 
     // collect all the files we are interested in
     let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
     let mut query = QueryStringBuilder::new(
-        "select id, device_manufacturer, device_product, time_created, uuid from files",
+        "select id, device_manufacturer, device_product, device_serial_number, time_created, uuid from files",
     );
     if let Some(start_date) = opts.since.as_ref() {
         query.and_where("time_created >= ?");
@@ -107,7 +84,12 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
             file.product,
             file.uuid
         );
-        if let Some(data) = agg_data.get(&file.id) {
+        let file_id = if let Some(val) = file.id {
+            val
+        } else {
+            continue;
+        };
+        if let Some(data) = agg_data.get(&file_id) {
             println!(
                 "\t Distance: {:0.2} miles, Time: {:3}:{:02.0}, \
                      Pace: {:2}:{:02.0}, Heart Rate: {:0.0}bpm",
@@ -119,7 +101,7 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
                 data["avg_heart_rate"]
             );
         }
-        if let Some(data) = lap_data.get(&file.id) {
+        if let Some(data) = lap_data.get(&file_id) {
             for (i, lap) in data.iter().enumerate() {
                 println!(
                     "\t * Lap {:02} - {:0.2} miles, Time: {:3}:{:02.0}, Heart Rate: {:0.0}bpm",
