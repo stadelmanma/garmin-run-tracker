@@ -122,8 +122,8 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
 fn collect_aggregate_stats(
     conn: &Connection,
     file_ids: Rc<Vec<Value>>,
-) -> Result<HashMap<i32, HashMap<&'static str, f64>>> {
-    let mut agg_data: HashMap<i32, HashMap<&'static str, f64>> = HashMap::new();
+) -> Result<HashMap<u32, HashMap<&'static str, f64>>> {
+    let mut agg_data: HashMap<u32, HashMap<&'static str, f64>> = HashMap::new();
     let mut stmt = conn.prepare(
         "select max(distance) tot_dist, sum(speed)/count(speed) avg_speed,
                     sum(heart_rate)/count(heart_rate) avg_hr,
@@ -160,8 +160,8 @@ fn collect_aggregate_stats(
 fn collect_lap_stats(
     conn: &Connection,
     file_ids: Rc<Vec<Value>>,
-) -> Result<HashMap<i32, Vec<HashMap<&'static str, f64>>>> {
-    let mut lap_data: HashMap<i32, Vec<HashMap<&'static str, f64>>> = HashMap::new();
+) -> Result<HashMap<u32, Vec<HashMap<&'static str, f64>>>> {
+    let mut lap_data: HashMap<u32, Vec<HashMap<&'static str, f64>>> = HashMap::new();
     let mut stmt = conn.prepare(
         "select average_speed, average_heart_rate, total_distance,
                     start_time, timestamp as end_time, file_id
@@ -174,12 +174,12 @@ fn collect_lap_stats(
     // store data after applying some unit conversions, we crate an empty vec here to make the
     // compiler happy since that's cleaner than extracting the first loop iteration
     let mut file_stats: Vec<HashMap<&'static str, f64>> = Vec::with_capacity(0);
-    let mut curr_id: i32 = -1;
+    let mut curr_id = 4294967295u32;
     while let Some(row) = rows.next()? {
         let mut lap_stats: HashMap<&'static str, f64> = HashMap::new();
         let total_time = row.get::<&str, DateTime<Local>>("end_time")?
             - row.get::<&str, DateTime<Local>>("start_time")?;
-        let file_id: i32 = row.get("file_id")?;
+        let file_id: u32 = row.get("file_id")?;
         lap_stats.insert(
             "total_distance",
             row.get::<&str, f64>("total_distance")? * 0.00062137,

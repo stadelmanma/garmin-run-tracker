@@ -85,17 +85,17 @@ impl ToSql for SqlValue<'_> {
 /// Contains basic information about a single FIT file, if the file is chained this struct
 /// will get updated to the last file in the chain.
 pub struct FileInfo {
-    id: Option<i32>,
+    id: Option<u32>,
     manufacturer: String,
     product: String,
-    serial_number: i32,
+    serial_number: u32,
     timestamp: DateTime<Local>,
     uuid: String,
 }
 
 impl FileInfo {
     /// Return row_id in the database for this file
-    pub fn id(&self) -> Option<i32> {
+    pub fn id(&self) -> Option<u32> {
         self.id
     }
 
@@ -110,7 +110,7 @@ impl FileInfo {
     }
 
     /// Return serial number of the device used to crated the file
-    pub fn serial_number(&self) -> i32 {
+    pub fn serial_number(&self) -> u32 {
         self.serial_number
     }
 
@@ -210,7 +210,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
                 let serial_number = data
                     .get("serial_number")
                     .map_or(Ok(-1i64), |v| v.0.clone().try_into())?;
-                file_rec_id = Some(tx.last_insert_rowid() as i32);
+                file_rec_id = Some(tx.last_insert_rowid() as u32);
                 file_info = Some(FileInfo {
                     id: file_rec_id,
                     manufacturer: data
@@ -219,7 +219,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
                     product: data
                         .get("garmin_product")
                         .map_or(String::new(), |v| v.to_string()),
-                    serial_number: serial_number as i32,
+                    serial_number: serial_number as u32,
                     timestamp,
                     uuid: uuid.clone(),
                 });
