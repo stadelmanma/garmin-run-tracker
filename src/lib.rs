@@ -6,7 +6,7 @@ use rusqlite::types::ToSqlOutput;
 use rusqlite::{params, ToSql};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::io::prelude::*;
 use std::iter::FromIterator;
@@ -88,6 +88,7 @@ pub struct FileInfo {
     id: Option<i32>,
     manufacturer: String,
     product: String,
+    serial_number: i32,
     timestamp: DateTime<Local>,
     uuid: String,
 }
@@ -108,6 +109,11 @@ impl FileInfo {
         &self.product
     }
 
+    /// Return serial number of the device used to crated the file
+    pub fn serial_number(&self) -> i32 {
+        self.serial_number
+    }
+
     pub fn timestamp(&self) -> &DateTime<Local> {
         &self.timestamp
     }
@@ -122,12 +128,13 @@ impl TryFrom<&'_ rusqlite::Row<'_>> for FileInfo {
     type Error = rusqlite::Error;
 
     fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
-        let (id, manufacturer, product, timestamp, uuid) = TryFrom::try_from(row)?;
+        let (id, manufacturer, product, serial_number, timestamp, uuid) = TryFrom::try_from(row)?;
 
         Ok(FileInfo {
             id,
             manufacturer,
             product,
+            serial_number,
             timestamp,
             uuid,
         })
@@ -200,6 +207,9 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
                     } else {
                         Local.timestamp(0, 0)
                     };
+                let serial_number = data
+                    .get("serial_number")
+                    .map_or(Ok(-1i64), |v| v.0.clone().try_into())?;
                 file_rec_id = Some(tx.last_insert_rowid() as i32);
                 file_info = Some(FileInfo {
                     id: file_rec_id,
@@ -209,6 +219,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
                     product: data
                         .get("garmin_product")
                         .map_or(String::new(), |v| v.to_string()),
+                    serial_number: serial_number as i32,
                     timestamp,
                     uuid: uuid.clone(),
                 });
