@@ -77,8 +77,10 @@ impl<'q> fmt::Display for QueryStringBuilder<'q> {
 
 pub fn open_db_connection() -> Result<Connection> {
     let db = db_path();
+    let conn = Connection::open(&db)?;
+    rusqlite::vtab::array::load_module(&conn)?;
     debug!("Connected to local database located at: {:?}", db);
-    Connection::open(&db)
+    Ok(conn)
 }
 
 pub fn db_path() -> PathBuf {

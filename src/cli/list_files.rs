@@ -2,9 +2,11 @@
 use super::parse_date;
 use crate::db::{open_db_connection, QueryStringBuilder};
 use chrono::{DateTime, Local, NaiveDate};
-use rusqlite::{params, Connection, Result, NO_PARAMS};
+use rusqlite::types::Value;
+use rusqlite::{params, Connection, Result};
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::rc::Rc;
 use structopt::StructOpt;
 
 /// List all files in the local database
@@ -77,13 +79,20 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
     }
     let mut stmt = conn.prepare(&query.to_string())?;
     let rows = stmt.query_map(&params, |row| FileInfo::try_from(row))?;
-    let files = rows.into_iter().collect::<Result<Vec<FileInfo>>>()?;
+    let mut file_ids = Vec::new();
+    let mut files = Vec::new();
+    for r in rows {
+        let r = r?;
+        file_ids.push(Value::from(r.id));
+        files.push(r);
+    }
+    let values: Rc<Vec<Value>> = Rc::new(file_ids); // usage of select from rarray needs an Rc
 
     // grab aggregrate and lap stats
     let (agg_data, lap_data) = if opts.stat {
         (
-            collect_aggregate_stats(&conn, opts.since.as_ref(), opts.until.as_ref())?,
-            collect_lap_stats(&conn, opts.since.as_ref(), opts.until.as_ref())?,
+            collect_aggregate_stats(&conn, Rc::clone(&values))?,
+            collect_lap_stats(&conn, Rc::clone(&values))?,
         )
     } else {
         (HashMap::new(), HashMap::new())
@@ -130,40 +139,19 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
 /// Query the record_messages table to get various values averaged across the entire run
 fn collect_aggregate_stats(
     conn: &Connection,
-    start_date: Option<&NaiveDate>,
-    end_date: Option<&NaiveDate>,
+    file_ids: Rc<Vec<Value>>,
 ) -> Result<HashMap<i32, HashMap<&'static str, f64>>> {
     let mut agg_data: HashMap<i32, HashMap<&'static str, f64>> = HashMap::new();
-    let mut stmt;
-    let mut rows = if let Some(start_date) = start_date {
-        stmt = conn.prepare(
-            "select max(distance) tot_dist, sum(speed)/count(speed) avg_speed,
+    let mut stmt = conn.prepare(
+        "select max(distance) tot_dist, sum(speed)/count(speed) avg_speed,
                     sum(heart_rate)/count(heart_rate) avg_hr,
                     max(timestamp) end_time, min(timestamp) start_time,
                     file_id
                 from record_messages
-                inner join files on files.id = file_id
-                where time_created between ? and ?
-                group by files.id",
-        )?;
-        if let Some(end_date) = end_date {
-            stmt.query(params![start_date, end_date.and_hms(23, 59, 59)])?
-        } else {
-            // if no end date is provided return all for the given day
-            stmt.query(params![start_date, start_date.and_hms(23, 59, 59)])?
-        }
-    } else {
-        stmt = conn.prepare(
-            "select max(distance) tot_dist, sum(speed)/count(speed) avg_speed,
-                    sum(heart_rate)/count(heart_rate) avg_hr,
-                    max(timestamp) end_time, min(timestamp) start_time,
-                    file_id
-                from record_messages
-                inner join files on files.id = file_id
-                group by files.id",
-        )?;
-        stmt.query(NO_PARAMS)?
-    };
+                where file_id in (select value from rarray(?))
+                group by file_id",
+    )?;
+    let mut rows = stmt.query(params![file_ids])?;
 
     // store data after applying some unit conversions
     while let Some(row) = rows.next()? {
@@ -189,36 +177,17 @@ fn collect_aggregate_stats(
 /// Query the record_messages table to get various values averaged across the entire run
 fn collect_lap_stats(
     conn: &Connection,
-    start_date: Option<&NaiveDate>,
-    end_date: Option<&NaiveDate>,
+    file_ids: Rc<Vec<Value>>,
 ) -> Result<HashMap<i32, Vec<HashMap<&'static str, f64>>>> {
     let mut lap_data: HashMap<i32, Vec<HashMap<&'static str, f64>>> = HashMap::new();
-    let mut stmt;
-    let mut rows = if let Some(start_date) = start_date {
-        stmt = conn.prepare(
-            "select average_speed, average_heart_rate, total_distance,
+    let mut stmt = conn.prepare(
+        "select average_speed, average_heart_rate, total_distance,
                     start_time, timestamp as end_time, file_id
                 from lap_messages
-                inner join files on files.id = file_id
-                where time_created between ? and ?
+                where file_id in (select value from rarray(?))
                 order by file_id, start_time",
-        )?;
-        if let Some(end_date) = end_date {
-            stmt.query(params![start_date, end_date.and_hms(23, 59, 59)])?
-        } else {
-            // if no end date is provided return all for the given day
-            stmt.query(params![start_date, start_date.and_hms(23, 59, 59)])?
-        }
-    } else {
-        stmt = conn.prepare(
-            "select average_speed, average_heart_rate, total_distance,
-                    start_time, timestamp as end_time, file_id
-                from lap_messages
-                inner join files on files.id = file_id
-                order by file_id, start_time",
-        )?;
-        stmt.query(NO_PARAMS)?
-    };
+    )?;
+    let mut rows = stmt.query(params![file_ids])?;
 
     // store data after applying some unit conversions, we crate an empty vec here to make the
     // compiler happy since that's cleaner than extracting the first loop iteration
