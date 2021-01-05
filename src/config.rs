@@ -14,11 +14,23 @@ pub enum ServiceType {
     VisualizationRoute,
 }
 
+pub type ServiceParameters = HashMap<String, Value>;
+
 /// Type alias for clarity
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceConfig {
     handler: String,
-    configuration: HashMap<String, Value>,
+    configuration: ServiceParameters,
+}
+
+impl ServiceConfig {
+    pub fn handler(&self) -> &str {
+        &self.handler
+    }
+
+    pub fn parameters(&self) -> &ServiceParameters {
+        &self.configuration
+    }
 }
 
 /// Configuration struct that we can create from the config file used
