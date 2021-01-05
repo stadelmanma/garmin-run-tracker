@@ -1,13 +1,13 @@
 use garmin_run_tracker::cli::Cli;
-use garmin_run_tracker::services::elevation::OpenTopoData;
 use garmin_run_tracker::services::update_elevation_data;
-use garmin_run_tracker::{create_database, devices_dir, import_fit_data, Error};
+use garmin_run_tracker::{create_database, devices_dir, import_fit_data, load_config, Error};
 use log::{error, info, trace, warn};
 use simplelog::{Config, TermLogger, TerminalMode};
 use std::fs::{copy as copy_file, create_dir_all, File};
 use structopt::StructOpt;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = load_config()?;
     let opt = Cli::from_args();
     let level_filter = opt.verbosity();
     TermLogger::init(level_filter, Config::default(), TerminalMode::Mixed)?;
@@ -20,14 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create database if needed
     create_database()?;
 
-    // use a locally hosted instance of opentopodata as the elevation data source
-    // we have it configured to use the ned10m dataset and a max request batch size of
-    // 100.
-    let topo = OpenTopoData::new(
-        "http://localhost:5000".to_string(),
-        "ned10m".to_string(),
-        100,
-    );
+    // fetch elecation service from config
+    let elevation_hdl = config.get_elevation_handler()?;
 
     // Import each fit file
     for file in opt.files() {
@@ -87,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &file,
             file_info.uuid()
         );
-        if let Err(e) = update_elevation_data(&topo, Some(file_info.uuid()), true) {
+        if let Err(e) = update_elevation_data(&elevation_hdl, Some(file_info.uuid()), true) {
             error!(
                 "Could not import elevation data from the API for FIT file '{}'",
                 file_info.uuid()
@@ -104,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // update missing elevation data in database, we'll hard error here if this fails since
     // the task was requested directly, overwrite = false to only hit missed values
     if opt.fix_missing_elevation() {
-        update_elevation_data(&topo, None, false)?;
+        update_elevation_data(&elevation_hdl, None, false)?;
     }
 
     // execute any subcommands
