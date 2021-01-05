@@ -14,15 +14,13 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 pub mod cli;
-pub mod elevation;
+mod db;
+pub use db::{create_database, open_db_connection};
 mod error;
-pub use elevation::{update_elevation_data, ElevationDataSource};
 pub use error::Error;
 mod gps;
 pub use gps::Location;
-mod db;
-pub use db::{create_database, open_db_connection};
-pub mod visualization;
+pub mod services;
 
 static DIRECTORY_NAME: &str = "garmin-run-tracker";
 

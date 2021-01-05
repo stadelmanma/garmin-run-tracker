@@ -1,6 +1,7 @@
 //! Define route image subcommand
 use crate::open_db_connection;
-use crate::visualization::route::{OpenMapTiles, RouteDrawingService};
+use crate::services::visualization::route::OpenMapTiles;
+use crate::services::RouteDrawingService;
 use crate::{Error, Location};
 use rusqlite::{params, Result};
 use std::fs::File;

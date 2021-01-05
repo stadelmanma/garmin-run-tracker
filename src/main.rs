@@ -1,8 +1,7 @@
 use garmin_run_tracker::cli::Cli;
-use garmin_run_tracker::elevation::OpenTopoData;
-use garmin_run_tracker::{
-    create_database, devices_dir, import_fit_data, update_elevation_data, Error,
-};
+use garmin_run_tracker::services::elevation::OpenTopoData;
+use garmin_run_tracker::services::update_elevation_data;
+use garmin_run_tracker::{create_database, devices_dir, import_fit_data, Error};
 use log::{error, info, trace, warn};
 use simplelog::{Config, TermLogger, TerminalMode};
 use std::fs::{copy as copy_file, create_dir_all, File};

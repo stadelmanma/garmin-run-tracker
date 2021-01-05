@@ -1,6 +1,6 @@
 //! Access elevation data for a given GPS location using an external source
-use super::db::QueryStringBuilder;
-use crate::{open_db_connection, Error, Location};
+use crate::db::{open_db_connection, QueryStringBuilder};
+use crate::{Error, Location};
 use log::{debug, error};
 use rusqlite::params;
 
