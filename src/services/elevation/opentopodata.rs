@@ -1,6 +1,8 @@
 //! Import elevation data based on lat, long coordintes using the opentopodata API
 use super::ElevationDataSource;
+use crate::config::ServiceParameters;
 use crate::{Error, Location};
+use log::warn;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
@@ -35,6 +37,47 @@ impl OpenTopoData {
             dataset,
             batch_size,
         }
+    }
+
+    pub fn from_config(parameters: &ServiceParameters) -> Result<Self, Error> {
+        let mut base = Self::default();
+        for (key, value) in parameters {
+            match key.as_ref() {
+                "base_url" => {
+                    base.base_url = value
+                        .as_str()
+                        .ok_or(Error::InvalidConfigurationValue(format!(
+                            "invalid value for OpenTopoData.base_url: {:?}",
+                            value
+                        )))
+                        .map(|v| v.to_string())?;
+                }
+                "dataset" => {
+                    base.dataset = value
+                        .as_str()
+                        .ok_or(Error::InvalidConfigurationValue(format!(
+                            "invalid value for OpenTopoData.dataset: {:?}",
+                            value
+                        )))
+                        .map(|v| v.to_string())?;
+                }
+                "batch_size" => {
+                    base.batch_size = value
+                        .as_u64()
+                        .ok_or(Error::InvalidConfigurationValue(format!(
+                            "invalid value for OpenTopoData.batch_size: {:?}",
+                            value
+                        )))
+                        .map(|v| v as usize)?;
+                }
+                _ => warn!(
+                    "unknown configuration parameter for OpenTopoData: {}={:?}",
+                    key, value
+                ),
+            }
+        }
+
+        Ok(base)
     }
 
     fn request_url(&self) -> String {

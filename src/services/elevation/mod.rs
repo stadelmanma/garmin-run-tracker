@@ -1,4 +1,5 @@
 //! Access elevation data for a given GPS location using an external source
+use crate::config::ServiceConfig;
 use crate::db::{open_db_connection, QueryStringBuilder};
 use crate::{Error, Location};
 use log::{debug, error};
@@ -14,6 +15,16 @@ pub trait ElevationDataSource {
         &self,
         locations: &mut [Location],
     ) -> Result<(), Box<dyn std::error::Error>>;
+}
+
+pub fn handler_from_config(config: ServiceConfig) -> Result<Box<dyn ElevationDataSource>, Error> {
+    match config.handler() {
+        "opentopodata" => Ok(Box::new(OpenTopoData::from_config(config.parameters())?)),
+        _ => Err(Error::UnknownServiceHandler(format!(
+            "no elevation handler exists for: {}",
+            config.handler()
+        ))),
+    }
 }
 
 /// Update elevation for a FIT file or across all data in the database
