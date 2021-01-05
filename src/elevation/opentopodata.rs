@@ -42,6 +42,16 @@ impl OpenTopoData {
     }
 }
 
+impl Default for OpenTopoData {
+    fn default() -> Self {
+        OpenTopoData {
+            base_url: "http://localhost:5000".to_string(),
+            dataset: "ned10m".to_string(), // works well for USA/Canada
+            batch_size: 100,
+        }
+    }
+}
+
 impl ElevationDataSource for OpenTopoData {
     fn request_elevation_data(
         &self,
