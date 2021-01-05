@@ -17,9 +17,9 @@ pub trait ElevationDataSource {
     ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-pub fn handler_from_config(config: ServiceConfig) -> Result<Box<dyn ElevationDataSource>, Error> {
+pub fn new_elevation_handler(config: &ServiceConfig) -> Result<impl ElevationDataSource, Error> {
     match config.handler() {
-        "opentopodata" => Ok(Box::new(OpenTopoData::from_config(config.parameters())?)),
+        "opentopodata" => Ok(OpenTopoData::from_config(config.parameters())?),
         _ => Err(Error::UnknownServiceHandler(format!(
             "no elevation handler exists for: {}",
             config.handler()

@@ -1,4 +1,6 @@
 //! Store application configuration that gets read from disk
+use crate::services::{new_elevation_handler, ElevationDataSource};
+use crate::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_yaml::Value;
 use simplelog::LevelFilter;
@@ -48,6 +50,15 @@ pub struct Config {
 impl Config {
     pub fn load<T: Read>(source: &mut T) -> Result<Self, serde_yaml::Error> {
         serde_yaml::from_reader(source)
+    }
+
+    pub fn get_elevation_handler(&self) -> Result<impl ElevationDataSource, Error> {
+        match self.services.get(&ServiceType::Elevation) {
+            Some(cfg) => new_elevation_handler(cfg),
+            None => Err(Error::UnknownServiceHandler(
+                "no service configuration defined for elevation".to_string(),
+            )),
+        }
     }
 }
 
