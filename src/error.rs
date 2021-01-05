@@ -15,6 +15,8 @@ pub enum Error {
     Other(String),
     Rusqlite(rusqlite::Error),
     SerdeYamlError(serde_yaml::Error),
+    UnknownServiceHandler(String),
+    InvalidConfigurationValue(String),
 }
 
 impl convert::From<fitparser::Error> for Error {
@@ -76,6 +78,8 @@ impl fmt::Display for Error {
             Error::Other(msg) => write!(f, "{}", msg),
             Error::Rusqlite(e) => write!(f, "{}", e),
             Error::SerdeYamlError(e) => write!(f, "{}", e),
+            Error::UnknownServiceHandler(msg) => write!(f, "{}", msg),
+            Error::InvalidConfigurationValue(msg) => write!(f, "{}", msg),
         }
     }
 }
