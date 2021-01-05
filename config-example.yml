@@ -1,0 +1,32 @@
+#
+# Example configuration file for the garmin run tracker app
+#
+
+# locations to check for FIT files, e.g. the mount point of your device
+import_paths:
+  - /media/mstadelman/GARMIN/GARMIN/ACTIVITY
+
+# set default log level, command line options will override it
+log_level: info
+
+# configuration parameters for individual services used by the app to
+# fetch data, create images etc. The handler key specifies the implementation
+# to use. The configuration map is passed onto the constructor function
+# for the given implementation.
+services:
+  elevation:
+    handler: opentopodata  # name of module to use
+    configuration:  # these parameters will be available to the constructor
+      base_url: http://localhost:5000
+      dataset: ned10m
+      batch_size: 100
+  visualization_route:
+    handler: openmaptiles
+    configuration:
+      base_url: http://localhost:8080
+      style: osm-bright
+      image_width: 1800
+      image_height: 1200
+      image_format: png
+      stroke_color: red
+      stroke_width: 3
