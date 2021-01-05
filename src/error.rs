@@ -14,6 +14,7 @@ pub enum Error {
     Io(std::io::Error),
     Other(String),
     Rusqlite(rusqlite::Error),
+    SerdeYamlError(serde_yaml::Error),
 }
 
 impl convert::From<fitparser::Error> for Error {
@@ -37,6 +38,12 @@ impl convert::From<rusqlite::Error> for Error {
 impl convert::From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Error {
         Error::Io(err)
+    }
+}
+
+impl convert::From<serde_yaml::Error> for Error {
+    fn from(err: serde_yaml::Error) -> Error {
+        Error::SerdeYamlError(err)
     }
 }
 
@@ -68,6 +75,7 @@ impl fmt::Display for Error {
             Error::Io(e) => write!(f, "{}", e),
             Error::Other(msg) => write!(f, "{}", msg),
             Error::Rusqlite(e) => write!(f, "{}", e),
+            Error::SerdeYamlError(e) => write!(f, "{}", e),
         }
     }
 }
