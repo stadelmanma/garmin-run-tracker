@@ -8,12 +8,15 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::fs::File;
 use std::io::prelude::*;
 use std::iter::FromIterator;
 use std::ops::Deref;
 use std::path::PathBuf;
 
 pub mod cli;
+pub mod config;
+pub use config::Config;
 mod db;
 pub use db::{create_database, open_db_connection};
 mod error;
@@ -147,6 +150,12 @@ pub fn data_dir() -> PathBuf {
 
 pub fn devices_dir() -> PathBuf {
     data_dir().join("devices")
+}
+
+pub fn load_config() -> Result<Config, Error> {
+    let file = data_dir().join("config.yml");
+    let mut fp = File::open(&file)?;
+    Config::load(&mut fp).map_err(Error::from)
 }
 
 /// Import raw fit file data into the local database
