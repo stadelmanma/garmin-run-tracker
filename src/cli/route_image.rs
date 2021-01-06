@@ -1,6 +1,6 @@
 //! Define route image subcommand
+use crate::config::Config;
 use crate::open_db_connection;
-use crate::services::visualization::route::OpenMapTiles;
 use crate::services::RouteDrawingService;
 use crate::{Error, Location};
 use rusqlite::{params, Result};
@@ -18,12 +18,13 @@ pub struct RouteImageOpts {
     /// name of file to output image data to, if "-" is used we will write to stdout
     #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
-    /// struct used to generate the route image
-    #[structopt(skip)]
-    route_drawer: OpenMapTiles,
 }
 
-pub fn route_image_command(opts: RouteImageOpts) -> Result<(), Box<dyn std::error::Error>> {
+pub fn route_image_command(
+    config: Config,
+    opts: RouteImageOpts,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let route_drawer = config.get_route_visualization_handler()?;
     let conn = open_db_connection()?;
 
     // locate file_id from uuid
@@ -54,7 +55,7 @@ pub fn route_image_command(opts: RouteImageOpts) -> Result<(), Box<dyn std::erro
         trace.push(Location::from_fit_coordinates(row.get(0)?, row.get(1)?));
     }
 
-    let image_data = opts.route_drawer.draw_route(&trace)?;
+    let image_data = route_drawer.draw_route(&trace)?;
     if let Some(path) = opts.output {
         if path.to_string_lossy() == "-" {
             write_to_stdout(&image_data)?

@@ -1,4 +1,5 @@
 //! Define the application's command line interface
+use crate::config::Config;
 use chrono::NaiveDate;
 use simplelog::LevelFilter;
 use std::path::PathBuf;
@@ -61,9 +62,9 @@ impl Cli {
     }
 
     /// Consume options struct and return the result of subcommand execution
-    pub fn execute_subcommand(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn execute_subcommand(self, config: Config) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(cmd) = self.cmd {
-            cmd.execute()
+            cmd.execute(config)
         } else {
             // No subcommand to execute
             Ok(())
@@ -82,10 +83,10 @@ pub enum Command {
 
 impl Command {
     /// Consume enum variant and return the result of the command's execution
-    fn execute(self) -> Result<(), Box<dyn std::error::Error>> {
+    fn execute(self, config: Config) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Command::Listfiles(opts) => list_files_command(opts),
-            Command::RouteImage(opts) => route_image_command(opts),
+            Command::RouteImage(opts) => route_image_command(config, opts),
         }
     }
 }
