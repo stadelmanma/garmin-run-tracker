@@ -19,7 +19,7 @@ pub trait ElevationDataSource {
 
 pub fn new_elevation_handler(config: &ServiceConfig) -> Result<impl ElevationDataSource, Error> {
     match config.handler() {
-        "opentopodata" => Ok(OpenTopoData::from_config(config.parameters())?),
+        "opentopodata" => Ok(OpenTopoData::from_config(config)?),
         _ => Err(Error::UnknownServiceHandler(format!(
             "no elevation handler exists for: {}",
             config.handler()

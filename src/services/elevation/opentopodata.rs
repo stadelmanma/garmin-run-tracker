@@ -1,6 +1,6 @@
 //! Import elevation data based on lat, long coordintes using the opentopodata API
 use super::ElevationDataSource;
-use crate::config::ServiceParameters;
+use crate::config::ServiceConfig;
 use crate::{Error, Location};
 use log::warn;
 use reqwest::blocking::Client;
@@ -39,40 +39,29 @@ impl OpenTopoData {
         }
     }
 
-    pub fn from_config(parameters: &ServiceParameters) -> Result<Self, Error> {
+    pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
         let mut base = Self::default();
-        for (key, value) in parameters {
+        for key in config.parameters() {
             match key.as_ref() {
                 "base_url" => {
-                    base.base_url = value
-                        .as_str()
-                        .ok_or(Error::InvalidConfigurationValue(format!(
-                            "invalid value for OpenTopoData.base_url: {:?}",
-                            value
-                        )))
-                        .map(|v| v.to_string())?;
+                    if let Some(val) = config.get_parameter_as_string(key) {
+                        base.base_url = val?
+                    };
                 }
                 "dataset" => {
-                    base.dataset = value
-                        .as_str()
-                        .ok_or(Error::InvalidConfigurationValue(format!(
-                            "invalid value for OpenTopoData.dataset: {:?}",
-                            value
-                        )))
-                        .map(|v| v.to_string())?;
+                    if let Some(val) = config.get_parameter_as_string(key) {
+                        base.dataset = val?
+                    };
                 }
                 "batch_size" => {
-                    base.batch_size = value
-                        .as_u64()
-                        .ok_or(Error::InvalidConfigurationValue(format!(
-                            "invalid value for OpenTopoData.batch_size: {:?}",
-                            value
-                        )))
-                        .map(|v| v as usize)?;
+                    if let Some(val) = config.get_parameter_as_i64(key) {
+                        base.batch_size = val? as usize
+                    };
                 }
                 _ => warn!(
                     "unknown configuration parameter for OpenTopoData: {}={:?}",
-                    key, value
+                    key,
+                    config.get_parameter(key)
                 ),
             }
         }
