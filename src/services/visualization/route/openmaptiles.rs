@@ -1,6 +1,8 @@
 //! Use an instance of open map tiles to draw a course route
 use super::RouteDrawingService;
+use crate::config::ServiceConfig;
 use crate::{Error, Location};
+use log::warn;
 use reqwest::blocking::Client;
 use std::iter::FromIterator;
 
@@ -11,7 +13,7 @@ pub struct OpenMapTiles {
     style: String,
     image_width: u32,
     image_height: u32,
-    image_format: &'static str,
+    image_format: String,
     stroke_color: String,
     stroke_width: u32,
 }
@@ -22,6 +24,56 @@ impl OpenMapTiles {
         omt.base_url = base_url;
         omt.style = style;
         omt
+    }
+
+    pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
+        let mut base = Self::default();
+        for key in config.parameters() {
+            match key.as_ref() {
+                "base_url" => {
+                    if let Some(val) = config.get_parameter_as_string(key) {
+                        base.base_url = val?
+                    };
+                }
+                "style" => {
+                    if let Some(val) = config.get_parameter_as_string(key) {
+                        base.style = val?
+                    };
+                }
+                "image_width" => {
+                    if let Some(val) = config.get_parameter_as_i64(key) {
+                        base.image_width = val? as u32
+                    };
+                }
+                "image_height" => {
+                    if let Some(val) = config.get_parameter_as_i64(key) {
+                        base.image_height = val? as u32
+                    };
+                }
+                "image_format" => {
+                    if let Some(val) = config.get_parameter_as_string(key) {
+                        base.image_format = val?
+                    };
+                }
+                "stroke_color" => {
+                    if let Some(val) = config.get_parameter_as_string(key) {
+                        base.stroke_color = val?
+                    };
+                }
+                "stroke_width" => {
+                    if let Some(val) = config.get_parameter_as_i64(key) {
+                        base.stroke_width = val? as u32
+                    };
+                }
+                _ => warn!(
+                    "unknown configuration parameter for OpenMapTiles: {}={:?}",
+                    key,
+                    config.get_parameter(key)
+                ),
+            }
+        }
+
+        Ok(base)
     }
 
     pub fn image_width(&self) -> u32 {
@@ -80,7 +132,7 @@ impl Default for OpenMapTiles {
             style: "osm-bright".to_string(),
             image_width: 1800,
             image_height: 1200,
-            image_format: "png", // other formats are available but the list is short,
+            image_format: "png".to_string(), // other formats are available but the list is short,
             stroke_color: "red".to_string(),
             stroke_width: 3,
         }
