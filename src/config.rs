@@ -9,6 +9,7 @@ use serde_yaml::Value;
 use simplelog::LevelFilter;
 use std::collections::HashMap;
 use std::io::prelude::*;
+use std::iter::Iterator;
 use std::str::FromStr;
 
 /// Defines the allowed keys under the services map
@@ -33,8 +34,41 @@ impl ServiceConfig {
         &self.handler
     }
 
-    pub fn parameters(&self) -> &ServiceParameters {
-        &self.configuration
+    pub fn parameters(&self) -> impl Iterator<Item = &String> + '_ {
+        self.configuration.keys()
+    }
+
+    pub fn get_parameter(&self, key: &str) -> Option<&Value> {
+        self.configuration.get(key)
+    }
+
+    pub fn get_parameter_as_string(&self, key: &str) -> Option<Result<String, Error>> {
+        if let Some(value) = self.configuration.get(key) {
+            let value = value
+                .as_str()
+                .ok_or(Error::InvalidConfigurationValue(format!(
+                    "invalid value for {}.{}, expected a string: {:?}",
+                    &self.handler, key, value
+                )))
+                .map(|v| v.to_string());
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_parameter_as_i64(&self, key: &str) -> Option<Result<i64, Error>> {
+        if let Some(value) = self.configuration.get(key) {
+            let value = value
+                .as_i64()
+                .ok_or(Error::InvalidConfigurationValue(format!(
+                    "invalid value for {}.{}, expected an integer: {:?}",
+                    &self.handler, key, value
+                )));
+            Some(value)
+        } else {
+            None
+        }
     }
 }
 
