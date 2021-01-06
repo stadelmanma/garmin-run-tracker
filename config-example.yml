@@ -20,7 +20,7 @@ services:
       base_url: http://localhost:5000
       dataset: ned10m
       batch_size: 100
-  visualization_route:
+  route_visualization:
     handler: openmaptiles
     configuration:
       base_url: http://localhost:8080

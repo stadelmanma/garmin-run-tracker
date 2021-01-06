@@ -1,5 +1,8 @@
 //! Store application configuration that gets read from disk
-use crate::services::{new_elevation_handler, ElevationDataSource};
+use crate::services::{
+    new_elevation_handler, new_route_visualization_handler, ElevationDataSource,
+    RouteDrawingService,
+};
 use crate::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_yaml::Value;
@@ -13,7 +16,7 @@ use std::str::FromStr;
 #[serde(rename_all = "snake_case")]
 pub enum ServiceType {
     Elevation,
-    VisualizationRoute,
+    RouteVisualization,
 }
 
 pub type ServiceParameters = HashMap<String, Value>;
@@ -55,6 +58,15 @@ impl Config {
     pub fn get_elevation_handler(&self) -> Result<impl ElevationDataSource, Error> {
         match self.services.get(&ServiceType::Elevation) {
             Some(cfg) => new_elevation_handler(cfg),
+            None => Err(Error::UnknownServiceHandler(
+                "no service configuration defined for elevation".to_string(),
+            )),
+        }
+    }
+
+    pub fn get_route_visualization_handler(&self) -> Result<impl RouteDrawingService, Error> {
+        match self.services.get(&ServiceType::RouteVisualization) {
+            Some(cfg) => new_route_visualization_handler(cfg),
             None => Err(Error::UnknownServiceHandler(
                 "no service configuration defined for elevation".to_string(),
             )),
