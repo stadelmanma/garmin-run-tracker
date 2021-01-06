@@ -78,7 +78,8 @@ pub struct Config {
     import_paths: Vec<String>,
     #[serde(
         deserialize_with = "deserialize_level_filter",
-        serialize_with = "serialize_level_filter"
+        serialize_with = "serialize_level_filter",
+        default = "default_level_filter"
     )]
     log_level: LevelFilter,
     services: HashMap<ServiceType, ServiceConfig>,
@@ -87,6 +88,10 @@ pub struct Config {
 impl Config {
     pub fn load<T: Read>(source: &mut T) -> Result<Self, serde_yaml::Error> {
         serde_yaml::from_reader(source)
+    }
+
+    pub fn log_level(&self) -> LevelFilter {
+        self.log_level
     }
 
     pub fn get_elevation_handler(&self) -> Result<impl ElevationDataSource, Error> {
@@ -122,4 +127,8 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&level.to_string())
+}
+
+fn default_level_filter() -> LevelFilter {
+    LevelFilter::Info
 }

@@ -39,7 +39,7 @@ impl Cli {
     }
 
     /// Return the verbose flag counts as a log level filter
-    pub fn verbosity(&self) -> LevelFilter {
+    pub fn verbosity(&self, default: LevelFilter) -> LevelFilter {
         if self.quiet == 1 {
             LevelFilter::Warn
         } else if self.quiet > 1 {
@@ -48,8 +48,10 @@ impl Cli {
             LevelFilter::Debug
         } else if self.verbose == 2 {
             LevelFilter::Trace
+        } else if self.verbose > 2 {
+            LevelFilter::Off
         } else {
-            LevelFilter::Info
+            default
         }
     }
 

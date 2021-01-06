@@ -2,16 +2,11 @@ use garmin_run_tracker::cli::Cli;
 use garmin_run_tracker::services::update_elevation_data;
 use garmin_run_tracker::{create_database, devices_dir, import_fit_data, load_config, Error};
 use log::{error, info, trace, warn};
-use simplelog::{Config, TermLogger, TerminalMode};
+use simplelog::{Config as LoggerConfig, TermLogger, TerminalMode};
 use std::fs::{copy as copy_file, create_dir_all, File};
 use structopt::StructOpt;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = load_config()?;
-    let opt = Cli::from_args();
-    let level_filter = opt.verbosity();
-    TermLogger::init(level_filter, Config::default(), TerminalMode::Mixed)?;
-
     // create data_dir if needed
     if !devices_dir().exists() {
         create_dir_all(devices_dir())?;
@@ -19,6 +14,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create database if needed
     create_database()?;
+
+    // load config now so that the other initialization tasks can complete. They aren't currently
+    // dependent on the config file but if that changes we will need to reorder stuff.
+    let config = load_config()?;
+
+    let opt = Cli::from_args();
+    let log_level = opt.verbosity(config.log_level());
+    TermLogger::init(log_level, LoggerConfig::default(), TerminalMode::Mixed)?;
 
     // fetch elecation service from config
     let elevation_hdl = config.get_elevation_handler()?;
@@ -102,5 +105,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // execute any subcommands
-    opt.execute_subcommand()
+    opt.execute_subcommand(config)
 }
