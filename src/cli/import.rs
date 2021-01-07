@@ -1,6 +1,6 @@
 //! Define FIT file import command
 use crate::config::Config;
-use crate::services::{update_elevation_data, ElevationDataSource};
+use crate::services::update_elevation_data;
 use crate::{devices_dir, import_fit_data, open_db_connection, Error, FileInfo};
 use log::{debug, error, info, trace, warn};
 use rusqlite::Connection;
@@ -70,24 +70,37 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
 
     // Import FIT files from the defined paths
     let mut conn = open_db_connection()?;
-    import_files(
+    let imported_uuids = import_files(
         &mut conn,
         &import_paths,
         opts.recursive,
         import_paths.len() == 1, // allow hard error on dupe if our only path is a single file
         !opts.no_copy,
-        elevation_hdl.as_ref(),
     )?;
 
-    // update missing elevation data in database, we'll hard error here if this fails since
-    // the task was requested directly, overwrite = false to only hit missed values.
-    if opts.fix_missing_elevation {
-        if let Some(hdl) = elevation_hdl {
+    // add elevation data after importing all the files
+    if let Some(hdl) = elevation_hdl {
+        // we overwrite here on the assumption that API provides more accurate values than the
+        // device, if the device provided any at all
+        for uuid in imported_uuids {
+            match update_elevation_data(&hdl, Some(&uuid), true) {
+                Ok(_) => {
+                    info!("Successfully imported elevation for FIT file '{}'", uuid);
+                }
+                Err(e) => {
+                    error!(
+                        "Could not import elevation data from the API for FIT file '{}'",
+                        uuid
+                    );
+                    error!("{}", e);
+                }
+            }
+        }
+        // update missing elevation data in database, we'll hard error here if this fails since
+        // the task was requested directly and we're at the end of program execution anyways.
+        // overwrite = false to only hit NULL values.
+        if opts.fix_missing_elevation {
             update_elevation_data(&hdl, None, false)?;
-        } else {
-            return Err(Box::new(Error::Other(
-                "Could not fix missing elevation data, no elevation service available".to_string(),
-            )));
         }
     }
 
@@ -101,8 +114,8 @@ fn import_files(
     recursive: bool,
     err_on_dupe: bool,
     persist_file: bool,
-    elevation_hdl: Option<&impl ElevationDataSource>,
-) -> Result<(), Error> {
+) -> Result<Vec<String>, Error> {
+    let mut uuids = Vec::new();
     for path in paths {
         if !path.exists() {
             warn!("Path does not exist: {:?}", path);
@@ -123,19 +136,13 @@ fn import_files(
                 })
                 .collect();
             // call function with found paths, `err_on_dupe` is set to false since we're recursing
-            import_files(
-                conn,
-                &new_paths,
-                recursive,
-                false,
-                persist_file,
-                elevation_hdl,
-            )?;
+            import_files(conn, &new_paths, recursive, false, persist_file)
+                .map(|v| uuids.extend(v))?;
         } else {
-            match import_file(conn, path, persist_file, elevation_hdl) {
-                Ok(_) => {}
+            match import_file(conn, path, persist_file) {
+                Ok(file_info) => uuids.push(file_info.uuid().to_string()),
                 Err(e) => {
-                    // handle various errors
+                    // handle dupe errors
                     match &e {
                         Error::DuplicateFileError(_) => {
                             if err_on_dupe {
@@ -156,7 +163,7 @@ fn import_files(
         }
     }
 
-    Ok(())
+    Ok(uuids)
 }
 
 /// Import a FIT files into the database, optionally fetching elevation data from an external service
@@ -164,7 +171,6 @@ fn import_file(
     conn: &mut Connection,
     file: &PathBuf,
     persist_file: bool,
-    elevation_hdl: Option<&impl ElevationDataSource>,
 ) -> Result<FileInfo, Error> {
     trace!("Importing FIT file: {:?}", file);
     let tx = conn.transaction()?;
@@ -196,26 +202,6 @@ fn import_file(
         };
         copy_file(&file, &dest)?;
         info!("Successfully copied FIT file {:?} to {:?}", &file, &dest);
-    }
-
-    // add elevation data if possible, we overwrite here on the assumption that API provides
-    // more accurate values than the device.
-    if let Some(hdl) = elevation_hdl {
-        match update_elevation_data(hdl, Some(file_info.uuid()), true) {
-            Ok(_) => {
-                info!(
-                    "Successfully imported elevation for FIT file '{}'",
-                    file_info.uuid()
-                );
-            }
-            Err(e) => {
-                error!(
-                    "Could not import elevation data from the API for FIT file '{}'",
-                    file_info.uuid()
-                );
-                error!("{}", e)
-            }
-        }
     }
 
     Ok(file_info)
