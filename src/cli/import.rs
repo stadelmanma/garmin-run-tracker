@@ -1,8 +1,9 @@
 //! Define FIT file import command
 use crate::config::Config;
 use crate::services::{update_elevation_data, ElevationDataSource};
-use crate::{devices_dir, import_fit_data, Error, FileInfo};
+use crate::{devices_dir, import_fit_data, open_db_connection, Error, FileInfo};
 use log::{debug, error, info, trace, warn};
+use rusqlite::Connection;
 use std::fs::{copy as copy_file, create_dir_all, read_dir, File};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -68,7 +69,9 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
     }
 
     // Import FIT files from the defined paths
+    let mut conn = open_db_connection()?;
     import_files(
+        &mut conn,
         &import_paths,
         opts.recursive,
         import_paths.len() == 1, // allow hard error on dupe if our only path is a single file
@@ -93,6 +96,7 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
 
 /// import multiple files into the database as well as handle recursive directory searches
 fn import_files(
+    conn: &mut Connection,
     paths: &[PathBuf],
     recursive: bool,
     err_on_dupe: bool,
@@ -119,9 +123,16 @@ fn import_files(
                 })
                 .collect();
             // call function with found paths, `err_on_dupe` is set to false since we're recursing
-            import_files(&new_paths, recursive, false, persist_file, elevation_hdl)?;
+            import_files(
+                conn,
+                &new_paths,
+                recursive,
+                false,
+                persist_file,
+                elevation_hdl,
+            )?;
         } else {
-            match import_file(path, persist_file, elevation_hdl) {
+            match import_file(conn, path, persist_file, elevation_hdl) {
                 Ok(_) => {}
                 Err(e) => {
                     // handle various errors
@@ -150,18 +161,21 @@ fn import_files(
 
 /// Import a FIT files into the database, optionally fetching elevation data from an external service
 fn import_file(
+    conn: &mut Connection,
     file: &PathBuf,
     persist_file: bool,
     elevation_hdl: Option<&impl ElevationDataSource>,
 ) -> Result<FileInfo, Error> {
     trace!("Importing FIT file: {:?}", file);
+    let tx = conn.transaction()?;
     let mut fp = File::open(&file)?;
-    let file_info = import_fit_data(&mut fp)?;
+    let file_info = import_fit_data(&mut fp, &tx)?;
     info!(
         "Successfully imported FIT file: {:?} (UUID={})",
         &file,
         file_info.uuid()
     );
+    tx.commit()?;
 
     // copy FIT file to a local storage location since the device itself will delete the
     // file when it needs space.

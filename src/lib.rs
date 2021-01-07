@@ -3,7 +3,7 @@ use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
 use log::{debug, trace};
 use rusqlite::types::ToSqlOutput;
-use rusqlite::{params, ToSql};
+use rusqlite::{params, ToSql, Transaction};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
@@ -159,7 +159,7 @@ pub fn load_config() -> Result<Config, Error> {
 }
 
 /// Import raw fit file data into the local database
-pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
+pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo, Error> {
     let mut data = Vec::new();
     fp.read_to_end(&mut data)?;
 
@@ -168,8 +168,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
     trace!("UUID hash of file: {}", uuid);
 
     // connect to database and see if the UUID is aleady present before parsing
-    let mut conn = open_db_connection()?;
-    if let Ok(()) = conn.query_row("select id from files where uuid = ?", params![uuid], |_| {
+    if let Ok(()) = tx.query_row("select id from files where uuid = ?", params![uuid], |_| {
         Ok(())
     }) {
         return Err(Error::DuplicateFileError(uuid));
@@ -181,7 +180,6 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
 
     // loop over messages, the file_id message starts a new FIT file and any records appearing
     // before it are disregarded.
-    let tx = conn.transaction()?;
     let mut file_rec_id = None;
     let mut file_info = None;
     for mesg in messages {
@@ -292,7 +290,6 @@ pub fn import_fit_data<T: Read>(fp: &mut T) -> Result<FileInfo, Error> {
         }
     }
     // commit transaction to store data imported from file
-    tx.commit()?;
     file_info.ok_or(Error::FileIdMessageNotFound(uuid))
 }
 
