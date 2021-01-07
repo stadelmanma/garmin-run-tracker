@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, TimeZone, Utc};
 use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
-use log::{debug, trace};
+use log::trace;
 use rusqlite::types::ToSqlOutput;
 use rusqlite::{params, ToSql, Transaction};
 use sha2::{Digest, Sha256};
@@ -228,7 +228,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
                     timestamp,
                     uuid: uuid.clone(),
                 });
-                debug!("Processed and stored file_id message with data: {:?}", data)
+                trace!("Processed and stored file_id message with data: {:?}", data)
             }
             MesgNum::Lap => {
                 // store lap mesage
@@ -260,7 +260,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
                     data.get("timestamp"),
                     file_rec_id
                 ])?;
-                debug!("Processed and stored lap message with data: {:?}", data)
+                trace!("Processed and stored lap message with data: {:?}", data)
             }
             MesgNum::Record => {
                 // store record mesage
@@ -284,12 +284,11 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
                     data.get("timestamp"),
                     file_rec_id
                 ])?;
-                debug!("Processed and stored record message with data: {:?}", data)
+                trace!("Processed and stored record message with data: {:?}", data)
             }
             _ => trace!("Skipped {} message with data: {:?}", mesg.kind(), data),
         }
     }
-    // commit transaction to store data imported from file
     file_info.ok_or(Error::FileIdMessageNotFound(uuid))
 }
 
