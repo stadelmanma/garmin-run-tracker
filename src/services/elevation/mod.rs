@@ -2,7 +2,7 @@
 use crate::config::ServiceConfig;
 use crate::db::QueryStringBuilder;
 use crate::{Error, Location};
-use log::{debug, error};
+use log::{error, info};
 use rusqlite::{params, Transaction};
 
 mod opentopodata;
@@ -69,23 +69,25 @@ pub fn update_elevation_data<T: ElevationDataSource>(
         .as_ref()
         .map_or(Vec::new(), |v| vec![v as &dyn rusqlite::ToSql]);
     let mut stmt = tx.prepare(&rec_query.to_string())?;
-    let nrows = stmt
+    let (nset, nrows) = stmt
         .query(&params)
         .map(|rows| add_record_elevation_data(src, &tx, rows))??; // we have nested results here
     stmt.finalize()?; // appease borrow checker
-    debug!(
-        "Set location data for {} record messages{}",
+    info!(
+        "Set location data for {}/{} record messages{}",
+        nset,
         nrows,
         uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
     );
 
     let mut stmt = tx.prepare(&lap_query.to_string())?;
-    let nrows = stmt
+    let (nset, nrows) = stmt
         .query(&params)
         .map(|rows| add_lap_elevation_data(src, &tx, rows))??;
     stmt.finalize()?; // appease borrow checker
-    debug!(
-        "Set location data for {} lap messages{}",
+    info!(
+        "Set location data for {}/{} lap messages{}",
+        nset,
         nrows,
         uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
     );
@@ -99,7 +101,7 @@ fn add_record_elevation_data<T: ElevationDataSource>(
     src: &T,
     tx: &rusqlite::Transaction,
     mut rows: rusqlite::Rows,
-) -> Result<usize, Box<dyn std::error::Error>> {
+) -> Result<(usize, usize), Box<dyn std::error::Error>> {
     let mut locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
     while let Some(row) = rows.next()? {
@@ -113,7 +115,10 @@ fn add_record_elevation_data<T: ElevationDataSource>(
         stmt.execute(params![loc.elevation().map(|v| v as f64), rec_id])?;
     }
 
-    Ok(locations.len())
+    Ok((
+        locations.iter().filter(|l| l.elevation().is_some()).count(),
+        locations.len(),
+    ))
 }
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
@@ -122,7 +127,7 @@ fn add_lap_elevation_data<T: ElevationDataSource>(
     src: &T,
     tx: &rusqlite::Transaction,
     mut rows: rusqlite::Rows,
-) -> Result<usize, Box<dyn std::error::Error>> {
+) -> Result<(usize, usize), Box<dyn std::error::Error>> {
     let mut st_locations: Vec<Location> = Vec::new();
     let mut en_locations: Vec<Location> = Vec::new();
     let mut record_ids: Vec<i32> = Vec::new();
@@ -145,5 +150,11 @@ fn add_lap_elevation_data<T: ElevationDataSource>(
         ])?;
     }
 
-    Ok(st_locations.len())
+    Ok((
+        st_locations
+            .iter()
+            .filter(|l| l.elevation().is_some())
+            .count(),
+        st_locations.len(),
+    ))
 }
