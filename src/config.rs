@@ -90,6 +90,10 @@ impl Config {
         serde_yaml::from_reader(source)
     }
 
+    pub fn import_paths(&self) -> &[String] {
+        &self.import_paths
+    }
+
     pub fn log_level(&self) -> LevelFilter {
         self.log_level
     }
