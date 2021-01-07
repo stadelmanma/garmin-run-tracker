@@ -2,12 +2,12 @@
 use crate::config::Config;
 use crate::services::{update_elevation_data, ElevationDataSource};
 use crate::{devices_dir, import_fit_data, Error, FileInfo};
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use std::fs::{copy as copy_file, create_dir_all, read_dir, File};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-/// Generate an image of the running route based on the file's waypoints
+/// Import one or more FIT files directly or within the provided directories
 #[derive(Debug, StructOpt)]
 pub struct ImportOpts {
     /// FIT files to import or directories to search
@@ -30,6 +30,7 @@ pub struct ImportOpts {
     no_elevation: bool,
 }
 
+/// Implementation of the `import` subcommand
 pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn std::error::Error>> {
     // fetch elecation service from config
     let elevation_hdl = if !opts.no_elevation {
@@ -66,32 +67,14 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         )));
     }
 
-    // Import each fit file
-    for path in import_paths {
-        if path.is_dir() {
-            // TODO: process directory, recursively if need be
-        } else {
-            import_file(path, opts.no_copy, elevation_hdl.as_ref())?;
-            //TODO handle the dupe file error:
-            // Err(e) => {
-            //     // handle various errors
-            //     match &e {
-            //         Error::DuplicateFileError(_) => {
-            //             if opts.files().len() == 1 {
-            //                 // if we are importing a single file and it's a dupe throw a hard error
-            //                 error!("{}", e);
-            //                 return Err(Box::new(e));
-            //             } else {
-            //                 // if we are importing multiple files, just warn about the dupe
-            //                 warn!("{}", e);
-            //                 return;
-            //             }
-            //         }
-            //         _ => return Err(Box::new(e)),
-            //     }
-            // }
-        }
-    }
+    // Import FIT files from the defined paths
+    import_files(
+        &import_paths,
+        opts.recursive,
+        import_paths.len() == 1, // allow hard error on dupe if our only path is a single file
+        !opts.no_copy,
+        elevation_hdl.as_ref(),
+    )?;
 
     // update missing elevation data in database, we'll hard error here if this fails since
     // the task was requested directly, overwrite = false to only hit missed values.
@@ -108,18 +91,81 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
     Ok(())
 }
 
+/// import multiple files into the database as well as handle recursive directory searches
+fn import_files(
+    paths: &[PathBuf],
+    recursive: bool,
+    err_on_dupe: bool,
+    persist_file: bool,
+    elevation_hdl: Option<&impl ElevationDataSource>,
+) -> Result<(), Error> {
+    for path in paths {
+        if !path.exists() {
+            warn!("Path does not exist: {:?}", path);
+            continue;
+        }
+        if path.is_dir() {
+            debug!("Scanning contents of: {:?} for FIT files", path);
+            // collect files with the "FIT" extension from the directory and if we are processing
+            // directories recursively incldue them in the import call.
+            let new_paths = read_dir(path)?;
+            let new_paths: Vec<PathBuf> = new_paths
+                .filter_map(|d| d.ok())
+                .map(|d| d.path())
+                .filter(|p| {
+                    p.is_dir() && recursive
+                        || p.extension()
+                            .map_or(false, |e| e.to_string_lossy().to_ascii_lowercase() == "fit")
+                })
+                .collect();
+            // call function with found paths, `err_on_dupe` is set to false since we're recursing
+            import_files(&new_paths, recursive, false, persist_file, elevation_hdl)?;
+        } else {
+            match import_file(path, persist_file, elevation_hdl) {
+                Ok(_) => {}
+                Err(e) => {
+                    // handle various errors
+                    match &e {
+                        Error::DuplicateFileError(_) => {
+                            if err_on_dupe {
+                                // if we are importing a single file and it's a dupe throw a hard error
+                                error!("{}", e);
+                                return Err(e);
+                            } else {
+                                // if we are importing multiple files or are being call recursively,
+                                // just warn about the dupe instead
+                                warn!("{}", e);
+                                continue;
+                            }
+                        }
+                        _ => return Err(e), // propagate all other errors
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Import a FIT files into the database, optionally fetching elevation data from an external service
 fn import_file(
-    file: PathBuf,
-    no_copy: bool,
+    file: &PathBuf,
+    persist_file: bool,
     elevation_hdl: Option<&impl ElevationDataSource>,
 ) -> Result<FileInfo, Error> {
     trace!("Importing FIT file: {:?}", file);
     let mut fp = File::open(&file)?;
     let file_info = import_fit_data(&mut fp)?;
+    info!(
+        "Successfully imported FIT file: {:?} (UUID={})",
+        &file,
+        file_info.uuid()
+    );
 
     // copy FIT file to a local storage location since the device itself will delete the
     // file when it needs space.
-    if !no_copy {
+    if persist_file {
         let sub_dir_name = format!(
             "{}-{}-{}",
             file_info.manufacturer(),
@@ -138,19 +184,8 @@ fn import_file(
         info!("Successfully copied FIT file {:?} to {:?}", &file, &dest);
     }
 
-    info!(
-        "Successfully imported FIT file: {:?} (UUID={})",
-        &file,
-        file_info.uuid()
-    );
-    // add elevation data if possible, we overwrite here on the assumption that API is
-    // more accurate value than the device.
-    info!(
-        "Attempting to update elevation data for FIT file: {:?} (UUID={})...",
-        &file,
-        file_info.uuid()
-    );
-
+    // add elevation data if possible, we overwrite here on the assumption that API provides
+    // more accurate values than the device.
     if let Some(hdl) = elevation_hdl {
         match update_elevation_data(hdl, Some(file_info.uuid()), true) {
             Ok(_) => {
