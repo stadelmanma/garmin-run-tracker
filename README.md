@@ -5,14 +5,21 @@
 
 A basic command line application to parse FIT files from a Garmin watch
 and store them in a local sqlite3 database. The database file by default
-is stored at `$XDG_DATA_HOME/garmin-run-tracker.db` on linux systems. The
-[dirs::data_dir](https://docs.rs/dirs/2.0.2/dirs/fn.data_dir.html) function
-is used to provide the path to the user's data directory. Please refer to
-its documentation to determine the default path on other operating systems.
+is stored at `$XDG_DATA_HOME/garmin-run-tracker/garmin-run-tracker.db`
+on linux systems. The
+[dirs::data_dir](https://docs.rs/dirs/2.0.2/dirs/fn.data_dir.html)
+function is used to provide the path to the user's data directory.
+Please refer to its documentation to determine the default path on other
+operating systems.
+
+See `garmin_run_tracker --help` for usage information on the command line
+interface.
 
 Once imported data can be easily viewed and manipulated via the sqlite
 command line interface or a program that connects to the database. The
-schema is simple and can be viewed in `src/schema.rs`.
+schema is simple and can be viewed in `src/db/schema.rs` or via the
+`.schema` command in the SQLite console.
+
 
 ```sql
 -- Connect to the DB using: sqlite3 ~/.local/share/garmin-run-tracker.db
@@ -30,7 +37,7 @@ activity|garmin|fr25|2018-05-10T21:44:14+00:00|3956226596|5
 -- Select your top 5 fastest miles
 select average_speed, average_heart_rate, total_distance, timestamp
     from lap_messages
-    where total_distance > 1600 and average_heart_rate is not null
+    where total_distance > 1600
     order by average_speed desc limit 5;
 /*
 average_speed|average_heart_rate|total_distance|timestamp
@@ -41,6 +48,14 @@ average_speed|average_heart_rate|total_distance|timestamp
 3.553|164|1609.34|2018-05-17T22:30:33+00:00
 */
 ```
+
+## Configuration
+Configuration of the program is done through a YAML file located at
+`$XDG_DATA_HOME/garmin-run-tracker/config.yml`. An example file is
+located at the root of this project (config-example.yml) and can be
+copied into that location as a starting point. The configuration file
+defines a default log level, automatic import paths and sets parameters
+for external services used by the application.
 
 ## Features
 
@@ -71,7 +86,10 @@ your desired elevation dataset (if needed). The
 which maps nearly the all of North America at 30m and US in higher
 10m resolution.
 
-The config.yml used to setup the local server.
+The config.yml used to setup the local opentopodata server. NOTE: This
+is not the same config used by the garmin-run-tracker application.
+(See the config-example.yaml file for how we configure our access to this
+service).
 ```yaml
 # 400 error will be thrown above this limit.
 max_locations_per_request: 100
@@ -106,10 +124,7 @@ a locally hosted instance of [openmaptiles](https://openmaptiles.org/).
 Additional features are being considered/planned out, such as:
  * Output various statistics like "Personal Bests"
  * Output other aggregate data like weekly mileage
- * Create static route map images using the lat/long positions
  * Add data plotting capabilities
- * Allow elevation data to be updated after file import if desired
- * Allow runs to be labeled/named, i.e. "morgantown marathon" this should
-   be unique
+ * Allow runs to be labeled/named, i.e. "morgantown marathon"
  * Allow comments on runs
  * ...
