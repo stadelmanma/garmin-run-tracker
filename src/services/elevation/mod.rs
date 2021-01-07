@@ -1,9 +1,9 @@
 //! Access elevation data for a given GPS location using an external source
 use crate::config::ServiceConfig;
-use crate::db::{open_db_connection, QueryStringBuilder};
+use crate::db::QueryStringBuilder;
 use crate::{Error, Location};
 use log::{debug, error};
-use rusqlite::params;
+use rusqlite::{params, Transaction};
 
 mod opentopodata;
 pub use opentopodata::OpenTopoData;
@@ -29,13 +29,11 @@ pub fn new_elevation_handler(config: &ServiceConfig) -> Result<impl ElevationDat
 
 /// Update elevation for a FIT file or across all data in the database
 pub fn update_elevation_data<T: ElevationDataSource>(
+    tx: &Transaction,
     src: &T,
     uuid: Option<&str>,
     overwrite: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut conn = open_db_connection()?;
-    let tx = conn.transaction()?;
-
     // setup base queries
     let mut rec_query =
         QueryStringBuilder::new("select position_lat, position_long, id from record_messages");
@@ -92,7 +90,6 @@ pub fn update_elevation_data<T: ElevationDataSource>(
         uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
     );
 
-    tx.commit()?;
     Ok(())
 }
 

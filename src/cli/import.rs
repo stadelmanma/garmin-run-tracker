@@ -83,11 +83,14 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         // we overwrite here on the assumption that API provides more accurate values than the
         // device, if the device provided any at all
         for uuid in imported_uuids {
-            match update_elevation_data(&hdl, Some(&uuid), true) {
+            let tx = conn.transaction()?;
+            match update_elevation_data(&tx, &hdl, Some(&uuid), true) {
                 Ok(_) => {
+                    tx.commit()?;
                     info!("Successfully imported elevation for FIT file '{}'", uuid);
                 }
                 Err(e) => {
+                    tx.rollback()?;
                     error!(
                         "Could not import elevation data from the API for FIT file '{}'",
                         uuid
@@ -100,7 +103,9 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         // the task was requested directly and we're at the end of program execution anyways.
         // overwrite = false to only hit NULL values.
         if opts.fix_missing_elevation {
-            update_elevation_data(&hdl, None, false)?;
+            let tx = conn.transaction()?;
+            update_elevation_data(&tx, &hdl, None, false)?;
+            tx.commit()?;
         }
     }
 
