@@ -1,7 +1,6 @@
 //! Define route image subcommand
 use crate::config::Config;
 use crate::open_db_connection;
-use crate::services::RouteDrawingService;
 use crate::{Error, Location};
 use rusqlite::{params, Result};
 use std::fs::File;
@@ -47,7 +46,8 @@ pub fn route_image_command(
         "select position_lat, position_long from record_messages where
                                  file_id = ? and
                                  position_lat is not null and
-                                 position_long is not null",
+                                 position_long is not null
+                                 order by timestamp",
     )?;
     let mut rows = stmt.query(params![file_id])?;
     let mut trace: Vec<Location> = Vec::new();

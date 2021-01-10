@@ -1,6 +1,8 @@
 //! Plot running routes or course data using a GPS trace and a mapping source
 use crate::config::ServiceConfig;
 use crate::{Error, Location};
+mod mapbox;
+pub use mapbox::MapBox;
 mod openmaptiles;
 pub use openmaptiles::OpenMapTiles;
 
@@ -14,6 +16,7 @@ pub fn new_route_visualization_handler(
     config: &ServiceConfig,
 ) -> Result<Box<dyn RouteDrawingService>, Error> {
     match config.handler() {
+        "mapbox" => Ok(Box::new(MapBox::from_config(config)?)),
         "openmaptiles" => Ok(Box::new(OpenMapTiles::from_config(config)?)),
         _ => Err(Error::UnknownServiceHandler(format!(
             "no route visualization handler exists for: {}",
