@@ -1,7 +1,7 @@
 //! Use an instance of open map tiles to draw a course route
 use super::{Marker, RouteDrawingService};
 use crate::config::ServiceConfig;
-use crate::{Error, Location};
+use crate::{set_int_param_from_config, set_string_param_from_config, Error, Location};
 use log::warn;
 use reqwest::blocking::Client;
 use std::iter::FromIterator;
@@ -30,41 +30,13 @@ impl OpenMapTiles {
         let mut base = Self::default();
         for key in config.parameters() {
             match key.as_ref() {
-                "base_url" => {
-                    if let Some(val) = config.get_parameter_as_string(key) {
-                        base.base_url = val?
-                    };
-                }
-                "style" => {
-                    if let Some(val) = config.get_parameter_as_string(key) {
-                        base.style = val?
-                    };
-                }
-                "image_width" => {
-                    if let Some(val) = config.get_parameter_as_i64(key) {
-                        base.image_width = val? as u32
-                    };
-                }
-                "image_height" => {
-                    if let Some(val) = config.get_parameter_as_i64(key) {
-                        base.image_height = val? as u32
-                    };
-                }
-                "image_format" => {
-                    if let Some(val) = config.get_parameter_as_string(key) {
-                        base.image_format = val?
-                    };
-                }
-                "stroke_color" => {
-                    if let Some(val) = config.get_parameter_as_string(key) {
-                        base.stroke_color = val?
-                    };
-                }
-                "stroke_width" => {
-                    if let Some(val) = config.get_parameter_as_i64(key) {
-                        base.stroke_width = val? as u32
-                    };
-                }
+                "base_url" => set_string_param_from_config!(base, base_url, config),
+                "style" => set_string_param_from_config!(base, style, config),
+                "image_width" => set_int_param_from_config!(base, image_width, config, u32),
+                "image_height" => set_int_param_from_config!(base, image_height, config, u32),
+                "image_format" => set_string_param_from_config!(base, image_format, config),
+                "stroke_color" => set_string_param_from_config!(base, stroke_color, config),
+                "stroke_width" => set_int_param_from_config!(base, stroke_width, config, u32),
                 _ => warn!(
                     "unknown configuration parameter for OpenMapTiles: {}={:?}",
                     key,
