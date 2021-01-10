@@ -51,16 +51,13 @@ impl Location {
 /// https://developers.google.com/maps/documentation/utilities/polylinealgorithm
 pub fn encode_coordinates(coordinates: &[Location]) -> Result<String, String> {
     let mut output = "".to_string();
-    let mut b = Location {
-        latitude: 0.0,
-        longitude: 0.0,
-        elevation: None,
-    };
+    let mut b = (0, 0);
 
     for a in coordinates.into_iter() {
-        output = output + &encode(a.latitude, b.latitude)?;
-        output = output + &encode(a.longitude, b.longitude)?;
-        b = *a;
+        let a = (scale(a.latitude), scale(a.longitude));
+        output = output + &encode(a.0, b.0)?;
+        output = output + &encode(a.1, b.1)?;
+        b = a;
     }
 
     Ok(output)
@@ -74,9 +71,7 @@ fn scale(n: f32) -> i32 {
 }
 
 /// Encode a single latitude or longitude value into the polyline format
-fn encode(current: f32, previous: f32) -> Result<String, String> {
-    let current = scale(current);
-    let previous = scale(previous);
+fn encode(current: i32, previous: i32) -> Result<String, String> {
     let mut coordinate = (current - previous) << 1;
     if (current - previous) < 0 {
         coordinate = !coordinate;
