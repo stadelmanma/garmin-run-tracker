@@ -2,6 +2,7 @@
 use crate::config::Config;
 use crate::open_db_connection;
 use crate::{Error, Location};
+use crate::services::visualization::route::Marker;
 use rusqlite::{params, Result};
 use std::fs::File;
 use std::io::{self, Write};
@@ -40,8 +41,10 @@ pub fn route_image_command(
         }
     };
 
-    // fetch all waypoints from record_messages
-    // convert all waypoints to a Location vector (see OpenTopoData)
+    // TODO throw an eror if the trace is empty
+
+    // fetch all waypoints from record_messages and convert them into a GPS location trace for
+    // map plotting
     let mut stmt = conn.prepare(
         "select position_lat, position_long from record_messages where
                                  file_id = ? and
@@ -55,7 +58,30 @@ pub fn route_image_command(
         trace.push(Location::from_fit_coordinates(row.get(0)?, row.get(1)?));
     }
 
-    let image_data = route_drawer.draw_route(&trace, &[])?;
+    // fetch all waypoints from lap_messages and convert them into a GPS location markers for
+    // map plotting
+    let mut stmt = conn.prepare(
+        "select end_position_lat, end_position_long from lap_messages where
+                                 file_id = ? and
+                                 end_position_lat is not null and
+                                 end_position_long is not null
+                                 order by timestamp",
+    )?;
+    let mut rows = stmt.query(params![file_id])?;
+    let mut markers: Vec<Marker> = vec![Marker::new(trace[0], "S".to_string())];
+    let mut mile = 1;
+    while let Some(row) = rows.next()? {
+        markers.push(Marker::new(
+            Location::from_fit_coordinates(row.get(0)?, row.get(1)?),
+            format!("{}", mile),
+        ));
+        mile += 1;
+    }
+    if let Some(loc) = trace.last() {
+        markers.push(Marker::new(*loc, "F".to_string()));
+    }
+
+    let image_data = route_drawer.draw_route(&trace, &markers)?;
     if let Some(path) = opts.output {
         if path.to_string_lossy() == "-" {
             write_to_stdout(&image_data)?
