@@ -1,7 +1,10 @@
 //! Use an instance of open map tiles to draw a course route
 use super::{Marker, RouteDrawingService};
 use crate::config::ServiceConfig;
-use crate::{encode_coordinates, Error, Location};
+use crate::{
+    encode_coordinates, set_float_param_from_config, set_int_param_from_config,
+    set_string_param_from_config, Error, Location,
+};
 use form_urlencoded;
 use log::warn;
 use reqwest::blocking::Client;
@@ -29,6 +32,17 @@ impl MapBox {
         let mut base = Self::default();
         for key in config.parameters() {
             match key.as_ref() {
+                "base_url" => set_string_param_from_config!(base, base_url, config),
+                "api_version" => set_string_param_from_config!(base, api_version, config),
+                "username" => set_string_param_from_config!(base, username, config),
+                "style" => set_string_param_from_config!(base, style, config),
+                "image_width" => set_int_param_from_config!(base, image_width, config, u32),
+                "image_height" => set_int_param_from_config!(base, image_height, config, u32),
+                "marker_color" => set_string_param_from_config!(base, marker_color, config),
+                "marker_style" => set_string_param_from_config!(base, marker_style, config),
+                "stroke_color" => set_string_param_from_config!(base, stroke_color, config),
+                "stroke_width" => set_int_param_from_config!(base, stroke_width, config, u32),
+                "stroke_opacity" => set_float_param_from_config!(base, stroke_opacity, config, f32),
                 "access_token" => {
                     base.access_token = config.get_parameter_as_string(key).transpose()?
                 }
