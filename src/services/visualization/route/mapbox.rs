@@ -2,6 +2,7 @@
 use super::RouteDrawingService;
 use crate::config::ServiceConfig;
 use crate::{encode_coordinates, Error, Location};
+use form_urlencoded;
 use log::warn;
 use reqwest::blocking::Client;
 use std::iter::FromIterator;
@@ -40,7 +41,12 @@ impl MapBox {
     }
 
     fn request_url(&self, encoded_path: String) -> String {
-        format!(
+        // hacky way to encode the path, we need to drop the leading '=' sign
+        // from the call to form_urlencoded which is meant for key=value pairs
+        let encoded_path: String = form_urlencoded::Serializer::new(String::new())
+            .append_pair("", &encoded_path)
+            .finish();
+        let url = format!(
             "{}/styles/{}/{}/{}/static/path-{}+{}-{}({})/auto/{}x{}",
             self.base_url,
             self.api_version,
@@ -49,10 +55,18 @@ impl MapBox {
             self.stroke_width,
             self.stroke_color,
             self.stroke_opacity,
-            encoded_path,
+            &encoded_path[1..],
             self.image_width,
             self.image_height,
-        )
+        );
+
+        // mapbox has a URL limit of 8192 bytes, the access_token=[..] part in the query takes up
+        // around 100 bytes by itself
+        if url.len() > 8192 {
+            warn!("URL length exceeds 8KB due to a long running route, request may fail (size={:.2}KB).", url.len() as f32/1024.0);
+        }
+
+        url
     }
 }
 
