@@ -12,9 +12,9 @@ pub trait RouteDrawingService {
 
 pub fn new_route_visualization_handler(
     config: &ServiceConfig,
-) -> Result<impl RouteDrawingService, Error> {
+) -> Result<Box<dyn RouteDrawingService>, Error> {
     match config.handler() {
-        "openmaptiles" => Ok(OpenMapTiles::from_config(config)?),
+        "openmaptiles" => Ok(Box::new(OpenMapTiles::from_config(config)?)),
         _ => Err(Error::UnknownServiceHandler(format!(
             "no route visualization handler exists for: {}",
             config.handler()

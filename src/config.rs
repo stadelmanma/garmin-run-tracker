@@ -107,7 +107,7 @@ impl Config {
         }
     }
 
-    pub fn get_route_visualization_handler(&self) -> Result<impl RouteDrawingService, Error> {
+    pub fn get_route_visualization_handler(&self) -> Result<Box<dyn RouteDrawingService>, Error> {
         match self.services.get(&ServiceType::RouteVisualization) {
             Some(cfg) => new_route_visualization_handler(cfg),
             None => Err(Error::UnknownServiceHandler(
