@@ -16,6 +16,8 @@ pub struct MapBox {
     style: String,
     image_width: u32,
     image_height: u32,
+    marker_color: String,
+    marker_style: String,
     stroke_color: String,
     stroke_width: u32,
     stroke_opacity: f32,
@@ -40,18 +42,32 @@ impl MapBox {
         Ok(base)
     }
 
-    fn request_url(&self, encoded_path: String) -> String {
+    fn request_url(&self, encoded_path: String, markers: &[Marker]) -> String {
         // hacky way to encode the path, we need to drop the leading '=' sign
         // from the call to form_urlencoded which is meant for key=value pairs
-        let encoded_path: String = form_urlencoded::Serializer::new(String::new())
+        let encoded_path = form_urlencoded::Serializer::new(String::new())
             .append_pair("", &encoded_path)
             .finish();
+        let markers = markers.iter().fold(String::new(), |acc, m| {
+            acc + &format!(
+                "pin-{}-{}+{}({},{}),",
+                self.marker_style,
+                m.label().to_ascii_lowercase(),
+                self.marker_color,
+                m.longitude(),
+                m.latitude()
+            )
+        });
+        let markers = form_urlencoded::Serializer::new(String::new())
+            .append_pair("", &markers)
+            .finish();
         let url = format!(
-            "{}/styles/{}/{}/{}/static/path-{}+{}-{}({})/auto/{}x{}",
+            "{}/styles/{}/{}/{}/static/{}path-{}+{}-{}({})/auto/{}x{}",
             self.base_url,
             self.api_version,
             self.username,
             self.style,
+            &markers[1..],
             self.stroke_width,
             self.stroke_color,
             self.stroke_opacity,
@@ -79,9 +95,11 @@ impl Default for MapBox {
             style: "streets-v11".to_string(),
             image_width: 1280,
             image_height: 1280,
+            marker_color: "f07272".to_string(),
+            marker_style: "l".to_string(),
             stroke_color: "f44".to_string(),
-            stroke_width: 3,
-            stroke_opacity: 0.50,
+            stroke_width: 5,
+            stroke_opacity: 0.75,
             access_token: None,
         }
     }
@@ -95,7 +113,7 @@ impl RouteDrawingService for MapBox {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         // request image data
         let client = Client::new();
-        let request_url = self.request_url(encode_coordinates(trace)?);
+        let request_url = self.request_url(encode_coordinates(trace)?, markers);
         let resp = client
             .get(&request_url)
             .query(&[("access_token", self.access_token.as_ref())])
