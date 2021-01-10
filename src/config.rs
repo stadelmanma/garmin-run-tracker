@@ -70,6 +70,50 @@ impl ServiceConfig {
             None
         }
     }
+
+    pub fn get_parameter_as_f64(&self, key: &str) -> Option<Result<f64, Error>> {
+        if let Some(value) = self.configuration.get(key) {
+            let value = value
+                .as_f64()
+                .ok_or(Error::InvalidConfigurationValue(format!(
+                    "invalid value for {}.{}, expected a floating point value: {:?}",
+                    &self.handler, key, value
+                )));
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+// TODO: we could probably do this as a derive macro and save the manual effort.
+
+/// Set a string parameter on the service instance from a ServiceConfig instance
+#[macro_export]
+macro_rules! set_string_param_from_config {
+    ($b:expr, $k:ident, $c:expr) => {
+        if let Some(val) = $c.get_parameter_as_string(stringify!($k)) {
+            $b.$k = val?
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! set_int_param_from_config {
+    ($b:expr, $k:ident, $c:expr, $o:ident) => {
+        if let Some(val) = $c.get_parameter_as_i64(stringify!($k)) {
+            $b.$k = val? as $o
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! set_float_param_from_config {
+    ($b:expr, $k:ident, $c:expr, $o:ident) => {
+        if let Some(val) = $c.get_parameter_as_f64(stringify!($k)) {
+            $b.$k = val? as $o
+        }
+    };
 }
 
 /// Configuration struct that we can create from the config file used
