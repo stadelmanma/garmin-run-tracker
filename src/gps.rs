@@ -1,4 +1,6 @@
 //! Module with GPS specific structures
+use std::char;
+use std::iter::IntoIterator;
 
 /// Stores a single geospatial point
 #[derive(Clone, Copy, Debug)]
@@ -40,4 +42,53 @@ impl Location {
     pub fn set_elevation(&mut self, elevation: Option<f32>) {
         self.elevation = elevation;
     }
+}
+
+/// Encodes a slice of coordinates into Google Encoded Polyline format.
+///
+/// This code was extracted and simplified for our use case from:
+/// https://github.com/georust/polyline
+/// https://developers.google.com/maps/documentation/utilities/polylinealgorithm
+pub fn encode_coordinates(coordinates: &[Location]) -> Result<String, String> {
+    let mut output = "".to_string();
+    let mut b = Location {
+        latitude: 0.0,
+        longitude: 0.0,
+        elevation: None,
+    };
+
+    for a in coordinates.into_iter() {
+        output = output + &encode(a.latitude, b.latitude)?;
+        output = output + &encode(a.longitude, b.longitude)?;
+        b = *a;
+    }
+
+    Ok(output)
+}
+
+/// Scale a floating point value into an integer at the given precision
+#[inline]
+fn scale(n: f32) -> i32 {
+    static FACTOR: f32 = 100_000.0; // use 5 digits of precision
+    (FACTOR * n).round() as i32
+}
+
+/// Encode a single latitude or longitude value into the polyline format
+fn encode(current: f32, previous: f32) -> Result<String, String> {
+    let current = scale(current);
+    let previous = scale(previous);
+    let mut coordinate = (current - previous) << 1;
+    if (current - previous) < 0 {
+        coordinate = !coordinate;
+    }
+    let mut output: String = "".to_string();
+    while coordinate >= 0x20 {
+        let from_char = char::from_u32(((0x20 | (coordinate & 0x1f)) + 63) as u32)
+            .ok_or("Couldn't convert character")?;
+        output.push(from_char);
+        coordinate >>= 5;
+    }
+    let from_char = char::from_u32((coordinate + 63) as u32).ok_or("Couldn't convert character")?;
+    output.push(from_char);
+    Ok(output)
 }

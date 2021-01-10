@@ -22,7 +22,7 @@ pub use db::{create_database, open_db_connection};
 mod error;
 pub use error::Error;
 mod gps;
-pub use gps::Location;
+pub use gps::{encode_coordinates, Location};
 pub mod services;
 
 static DIRECTORY_NAME: &str = "garmin-run-tracker";
