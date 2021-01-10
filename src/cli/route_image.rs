@@ -55,7 +55,7 @@ pub fn route_image_command(
         trace.push(Location::from_fit_coordinates(row.get(0)?, row.get(1)?));
     }
 
-    let image_data = route_drawer.draw_route(&trace)?;
+    let image_data = route_drawer.draw_route(&trace, &[])?;
     if let Some(path) = opts.output {
         if path.to_string_lossy() == "-" {
             write_to_stdout(&image_data)?

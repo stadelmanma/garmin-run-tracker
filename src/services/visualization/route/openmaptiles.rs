@@ -1,5 +1,5 @@
 //! Use an instance of open map tiles to draw a course route
-use super::RouteDrawingService;
+use super::{Marker, RouteDrawingService};
 use crate::config::ServiceConfig;
 use crate::{Error, Location};
 use log::warn;
@@ -140,7 +140,11 @@ impl Default for OpenMapTiles {
 }
 
 impl RouteDrawingService for OpenMapTiles {
-    fn draw_route(&self, trace: &[Location]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    fn draw_route(
+        &self,
+        trace: &[Location],
+        _markers: &[Marker],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         // build path query while determining the bounding coordintes
         let mut min_lat = 90.0;
         let mut max_lat = -90.0;

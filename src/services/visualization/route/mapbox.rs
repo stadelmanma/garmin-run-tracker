@@ -1,5 +1,5 @@
 //! Use an instance of open map tiles to draw a course route
-use super::RouteDrawingService;
+use super::{Marker, RouteDrawingService};
 use crate::config::ServiceConfig;
 use crate::{encode_coordinates, Error, Location};
 use form_urlencoded;
@@ -88,7 +88,11 @@ impl Default for MapBox {
 }
 
 impl RouteDrawingService for MapBox {
-    fn draw_route(&self, trace: &[Location]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    fn draw_route(
+        &self,
+        trace: &[Location],
+        markers: &[Marker],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         // request image data
         let client = Client::new();
         let request_url = self.request_url(encode_coordinates(trace)?);
