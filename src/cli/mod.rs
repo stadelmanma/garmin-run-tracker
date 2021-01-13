@@ -4,6 +4,8 @@ use chrono::NaiveDate;
 use simplelog::LevelFilter;
 use structopt::StructOpt;
 
+mod download_epo;
+use download_epo::{download_epo_command, DownloadEpoOpts};
 mod import;
 use import::{import_command, ImportOpts};
 mod list_files;
@@ -51,6 +53,9 @@ impl Cli {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
+    /// Update the Extended Prediction Orbit (EPO) data for one or more garmin devices
+    #[structopt(name = "download-epo")]
+    DownloadEpo(DownloadEpoOpts),
     /// Import new FIT files into the application
     #[structopt(name = "import")]
     Import(ImportOpts),
@@ -66,6 +71,7 @@ impl Command {
     /// Consume enum variant and return the result of the command's execution
     fn execute(self, config: Config) -> Result<(), Box<dyn std::error::Error>> {
         match self {
+            Command::DownloadEpo(opts) => download_epo_command(config, opts),
             Command::Import(opts) => import_command(config, opts),
             Command::Listfiles(opts) => list_files_command(opts),
             Command::RouteImage(opts) => route_image_command(config, opts),
