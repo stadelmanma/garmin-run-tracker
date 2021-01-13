@@ -140,10 +140,10 @@ impl RouteDrawingService for MapBox {
             };
         } else {
             let code = resp.status();
-            return Err(Box::new(Error::Other(format!(
-                "MapBox drawing failed with code: {}",
-                code
-            ))));
+            return Err(Box::new(Error::RequestError(
+                code,
+                "MapBox drawing failed".to_string(),
+            )));
         }
     }
 }

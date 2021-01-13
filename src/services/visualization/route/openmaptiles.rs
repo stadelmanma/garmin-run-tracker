@@ -156,10 +156,10 @@ impl RouteDrawingService for OpenMapTiles {
             };
         } else {
             let code = resp.status();
-            return Err(Box::new(Error::Other(format!(
-                "OpenMapTiles drawing failed with code: {}",
-                code
-            ))));
+            return Err(Box::new(Error::RequestError(
+                code,
+                "OpenMapTiles drawing failed".to_string(),
+            )));
         }
     }
 }

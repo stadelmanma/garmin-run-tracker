@@ -117,7 +117,7 @@ impl ElevationDataSource for OpenTopoData {
                 // parse error response to get reason why the request failed
                 let code = resp.status();
                 let json: ErrorResponse = resp.json()?;
-                return Err(Box::new(Error::ElevationRequestError(code, json.error)));
+                return Err(Box::new(Error::RequestError(code, json.error)));
             }
         }
 

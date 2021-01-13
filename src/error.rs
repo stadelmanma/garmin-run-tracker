@@ -7,7 +7,7 @@ use std::fmt;
 pub enum Error {
     ArrayConversionError,
     DuplicateFileError(String),
-    ElevationRequestError(reqwest::StatusCode, String),
+    RequestError(reqwest::StatusCode, String),
     FileDoesNotExistError(String),
     FileIdMessageNotFound(String),
     FitParser(fitparser::ErrorKind),
@@ -60,11 +60,9 @@ impl fmt::Display for Error {
                 "Attempted to import a file already in the database, UUID: {}",
                 uuid
             ),
-            Error::ElevationRequestError(code, msg) => write!(
-                f,
-                "Elevation data request failed with code: {} - {}",
-                code, msg
-            ),
+            Error::RequestError(code, msg) => {
+                write!(f, "HTTP request failed with code: {} - {}", code, msg)
+            }
             Error::FileDoesNotExistError(uuid) => {
                 write!(f, "FIT File with UUID='{}' does not exist", uuid)
             }
