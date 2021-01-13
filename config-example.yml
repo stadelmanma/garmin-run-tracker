@@ -2,12 +2,16 @@
 # Example configuration file for the garmin run tracker app
 #
 
+# set default log level, command line options will override it
+log_level: info
+
 # locations to check for FIT files, e.g. the mount point of your device
 import_paths:
   - /media/mstadelman/GARMIN/GARMIN/ACTIVITY
 
-# set default log level, command line options will override it
-log_level: info
+# locations to save download EPO data to
+epo_data_paths:
+    - /media/mstadelman/GARMIN/GARMIN/REMOTESW/EPO.BIN
 
 # configuration parameters for individual services used by the app to
 # fetch data, create images etc. The handler key specifies the implementation

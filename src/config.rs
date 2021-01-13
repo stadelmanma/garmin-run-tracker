@@ -20,9 +20,10 @@ pub enum ServiceType {
     RouteVisualization,
 }
 
+/// Type alias for clarity
 pub type ServiceParameters = HashMap<String, Value>;
 
-/// Type alias for clarity
+/// Configuration options for a single service of any type
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceConfig {
     handler: String,
@@ -120,6 +121,7 @@ macro_rules! set_float_param_from_config {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     import_paths: Vec<String>,
+    epo_data_paths: Vec<String>,
     #[serde(
         deserialize_with = "deserialize_level_filter",
         serialize_with = "serialize_level_filter",
@@ -136,6 +138,10 @@ impl Config {
 
     pub fn import_paths(&self) -> &[String] {
         &self.import_paths
+    }
+
+    pub fn epo_data_paths(&self) -> &[String] {
+        &self.epo_data_paths
     }
 
     pub fn log_level(&self) -> LevelFilter {
