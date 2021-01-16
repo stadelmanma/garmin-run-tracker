@@ -2,7 +2,7 @@
 //! Original source of code: https://github.com/scrapper/postrunner/blob/master/lib/postrunner/EPO_Downloader.rb
 use crate::config::Config;
 use crate::Error;
-use chrono::{Duration, TimeZone, Utc};
+use chrono::{Duration, Local, TimeZone, Utc};
 use log::{debug, error, info, warn};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
@@ -173,9 +173,10 @@ fn validate_epo_data(data: &[u8]) -> Result<(), Error> {
         offset += 72;
     }
     info!(
-        "EPO data is valid from {} to  {}",
-        start_date,
-        end_date + Duration::hours(6)
+        "EPO data is valid from {} - {}",
+        Local::from_utc_datetime(&Local, &start_date.naive_utc()).format("%m/%d"),
+        Local::from_utc_datetime(&Local, &(end_date + Duration::hours(6)).naive_utc())
+            .format("%m/%d")
     );
 
     Ok(())
