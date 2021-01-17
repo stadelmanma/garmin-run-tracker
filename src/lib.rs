@@ -1,13 +1,11 @@
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Local, TimeZone};
 use fitparser::profile::MesgNum;
 use fitparser::{FitDataRecord, Value};
 use log::trace;
-use rusqlite::types::ToSqlOutput;
-use rusqlite::{params, ToSql, Transaction};
+use rusqlite::{params, Transaction};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::fmt;
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
 use std::iter::FromIterator;
@@ -18,70 +16,15 @@ pub mod cli;
 pub mod config;
 pub use config::Config;
 mod db;
+use db::SqlValue;
 pub use db::{create_database, open_db_connection};
 mod error;
 pub use error::Error;
-mod gps;
+pub mod gps;
 pub use gps::{encode_coordinates, Location};
 pub mod services;
 
 static DIRECTORY_NAME: &str = "garmin-run-tracker";
-
-/// Acts as a pointer to a Value variant that can be used in parameterized sql statements
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct SqlValue<'a>(&'a Value);
-
-impl SqlValue<'_> {
-    /// Wrap a reference to a Value parsed from a FIT file
-    pub fn new(value: &Value) -> SqlValue {
-        SqlValue(value)
-    }
-}
-
-impl Deref for SqlValue<'_> {
-    type Target = Value;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl fmt::Display for SqlValue<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl ToSql for SqlValue<'_> {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        match self.0 {
-            Value::Timestamp(val) => Ok(ToSqlOutput::from(val.with_timezone(&Utc).to_rfc3339())),
-            Value::Byte(val) => Ok(ToSqlOutput::from(*val)),
-            Value::Enum(val) => Ok(ToSqlOutput::from(*val)),
-            Value::SInt8(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt8(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt8z(val) => Ok(ToSqlOutput::from(*val)),
-            Value::SInt16(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt16(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt16z(val) => Ok(ToSqlOutput::from(*val)),
-            Value::SInt32(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt32(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt32z(val) => Ok(ToSqlOutput::from(*val)),
-            Value::SInt64(val) => Ok(ToSqlOutput::from(*val)),
-            Value::UInt64(val) => Ok(ToSqlOutput::from(*val as i64)),
-            Value::UInt64z(val) => Ok(ToSqlOutput::from(*val as i64)),
-            Value::Float32(val) => Ok(ToSqlOutput::from(*val as f64)),
-            Value::Float64(val) => Ok(ToSqlOutput::from(*val)),
-            // treating this as bytes causes it to be a Blob on query, even though the column is text
-            Value::String(val) => Ok(ToSqlOutput::Owned(rusqlite::types::Value::Text(
-                val.to_string(),
-            ))),
-            Value::Array(_) => Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
-                Error::ArrayConversionError,
-            ))),
-        }
-    }
-}
 
 /// Contains basic information about a single FIT file, if the file is chained this struct
 /// will get updated to the last file in the chain.
@@ -122,23 +65,6 @@ impl FileInfo {
     /// Return UUID generated from this file's byte stream
     pub fn uuid(&self) -> &str {
         &self.uuid
-    }
-}
-
-impl TryFrom<&'_ rusqlite::Row<'_>> for FileInfo {
-    type Error = rusqlite::Error;
-
-    fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
-        let (id, manufacturer, product, serial_number, timestamp, uuid) = TryFrom::try_from(row)?;
-
-        Ok(FileInfo {
-            id,
-            manufacturer,
-            product,
-            serial_number,
-            timestamp,
-            uuid,
-        })
     }
 }
 
@@ -206,15 +132,16 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
                     data.get("time_created"),
                     uuid,
                 ])?;
-                let timestamp =
-                    if let Some(SqlValue(Value::Timestamp(v))) = data.get("time_created") {
+                let timestamp = data.get("time_created").map_or(Local.timestamp(0, 0), |v| {
+                    if let Value::Timestamp(v) = v.deref() {
                         v.clone()
                     } else {
                         Local.timestamp(0, 0)
-                    };
+                    }
+                });
                 let serial_number = data
                     .get("serial_number")
-                    .map_or(Ok(-1i64), |v| v.0.clone().try_into())?;
+                    .map_or(Ok(-1i64), |v| v.deref().clone().try_into())?;
                 file_rec_id = Some(tx.last_insert_rowid() as u32);
                 file_info = Some(FileInfo {
                     id: file_rec_id,

@@ -1,6 +1,6 @@
 //! Define the list-files subcommand
 use super::parse_date;
-use crate::db::{open_db_connection, QueryStringBuilder};
+use crate::db::{new_file_info_query, open_db_connection};
 use crate::FileInfo;
 use chrono::{DateTime, Local, NaiveDate};
 use rusqlite::types::Value;
@@ -35,9 +35,7 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
 
     // collect all the files we are interested in
     let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
-    let mut query = QueryStringBuilder::new(
-        "select id, device_manufacturer, device_product, device_serial_number, time_created, uuid from files",
-    );
+    let mut query = new_file_info_query();
     if let Some(start_date) = opts.since.as_ref() {
         query.and_where("time_created >= ?");
         params.push(start_date as &dyn rusqlite::ToSql);
