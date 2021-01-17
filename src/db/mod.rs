@@ -4,7 +4,7 @@ use chrono::Utc;
 use fitparser::Value;
 use log::{debug, error};
 use rusqlite::types::ToSqlOutput;
-use rusqlite::{params, Connection, Result, ToSql};
+use rusqlite::{Connection, Result, ToSql};
 use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Deref;
@@ -180,23 +180,24 @@ pub fn new_file_info_query() -> QueryStringBuilder<'static> {
 pub fn find_file_by_uuid(conn: &Connection, uuid: &str) -> Result<FileInfo, Error> {
     let mut query = new_file_info_query();
     let pattern: String;
-    let uuid = if uuid.len() == 36 {
+    let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+    if uuid == ":last" {
+        query.order_by("time_created DESC");
+    } else if uuid.len() == 36 {
         query.and_where("uuid = ?");
-        uuid
+        params.push(&uuid);
     } else {
         query.and_where("uuid LIKE ?"); // partial string match
         query.order_by("time_created DESC");
         pattern = format!("{}%", uuid); // save value here so we can only copy uuid on partials
-        &pattern
-    };
-    conn.query_row(&query.to_string(), params![uuid], |row| {
-        FileInfo::try_from(row)
-    })
-    .map_err(|e| match e {
-        rusqlite::Error::QueryReturnedNoRows => Error::FileDoesNotExistError(uuid.to_string()),
-        _ => {
-            error!("FIT File with UUID='{}' does not exist", uuid);
-            Error::from(e)
-        }
-    })
+        params.push(&pattern);
+    }
+    conn.query_row(&query.to_string(), &params, |row| FileInfo::try_from(row))
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Error::FileDoesNotExistError(uuid.to_string()),
+            _ => {
+                error!("FIT File with UUID='{}' does not exist", uuid);
+                Error::from(e)
+            }
+        })
 }
