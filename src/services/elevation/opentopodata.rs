@@ -1,7 +1,8 @@
 //! Import elevation data based on lat, long coordintes using the opentopodata API
 use super::ElevationDataSource;
 use crate::config::ServiceConfig;
-use crate::{Error, Location};
+use crate::gps::Location;
+use crate::Error;
 use log::warn;
 use reqwest::blocking::Client;
 use serde::Deserialize;

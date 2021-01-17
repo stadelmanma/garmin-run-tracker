@@ -1,7 +1,8 @@
 //! Use an instance of open map tiles to draw a course route
 use super::{Marker, RouteDrawingService};
 use crate::config::ServiceConfig;
-use crate::{set_int_param_from_config, set_string_param_from_config, Error, Location};
+use crate::gps::Location;
+use crate::{set_int_param_from_config, set_string_param_from_config, Error};
 use log::warn;
 use reqwest::blocking::Client;
 use std::iter::FromIterator;

@@ -1,8 +1,8 @@
 //! Define route image subcommand
 use crate::config::Config;
 use crate::db::{find_file_by_uuid, open_db_connection};
+use crate::gps::Location;
 use crate::services::visualization::route::Marker;
-use crate::Location;
 use rusqlite::{params, Result};
 use std::fs::File;
 use std::io::{self, Write};

@@ -21,7 +21,6 @@ use db::{find_file_by_uuid, SqlValue};
 mod error;
 pub use error::Error;
 pub mod gps;
-pub use gps::{encode_coordinates, Location};
 pub mod services;
 
 static DIRECTORY_NAME: &str = "garmin-run-tracker";

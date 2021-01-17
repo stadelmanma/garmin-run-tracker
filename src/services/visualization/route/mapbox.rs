@@ -1,9 +1,9 @@
 //! Use an instance of open map tiles to draw a course route
 use super::{Marker, RouteDrawingService};
 use crate::config::ServiceConfig;
+use crate::gps::{encode_coordinates, Location};
 use crate::{
-    encode_coordinates, set_float_param_from_config, set_int_param_from_config,
-    set_string_param_from_config, Error, Location,
+    set_float_param_from_config, set_int_param_from_config, set_string_param_from_config, Error,
 };
 use form_urlencoded;
 use log::warn;

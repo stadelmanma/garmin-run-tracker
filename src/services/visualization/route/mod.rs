@@ -1,6 +1,7 @@
 //! Plot running routes or course data using a GPS trace and a mapping source
 use crate::config::ServiceConfig;
-use crate::{Error, Location};
+use crate::gps::Location;
+use crate::Error;
 mod mapbox;
 pub use mapbox::MapBox;
 mod openmaptiles;
