@@ -27,6 +27,7 @@ static DIRECTORY_NAME: &str = "garmin-run-tracker";
 
 /// Contains basic information about a single FIT file, if the file is chained this struct
 /// will get updated to the last file in the chain.
+#[derive(Debug)]
 pub struct FileInfo {
     id: Option<u32>,
     manufacturer: String,
