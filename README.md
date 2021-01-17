@@ -116,8 +116,17 @@ necessary for a locally hosted version.
 
 Static route images are generated using third party services that provide
 map tiles and/or route plotting capabilities. This code was developed using
-a locally hosted instance of [openmaptiles](https://openmaptiles.org/).
+a locally hosted instance of [openmaptiles](https://openmaptiles.org/) as
+well as the [MapBox API](https://www.mapbox.com/).
 
+
+### EPO Data Downloading
+
+EPO data can be downloaded from the Garmin website and stored on your watch.
+This was tested with a Forerunner 25 and uses the same logic as the
+[postrunner](https://github.com/scrapper/postrunner) application. The
+`epo_data_paths` top level key can specify one or more locations to save
+EPO data for. See the `config-example.yml` file for details.
 
 ### Future
 

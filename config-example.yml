@@ -9,7 +9,8 @@ log_level: info
 import_paths:
   - /media/mstadelman/GARMIN/GARMIN/ACTIVITY
 
-# locations to save download EPO data to
+# locations to save download EPO data to (usually this will be
+# /[mount-point]/GARMIN/GARMIN/REMOTESW/EPO.BIN)
 epo_data_paths:
     - /media/mstadelman/GARMIN/GARMIN/REMOTESW/EPO.BIN
 
