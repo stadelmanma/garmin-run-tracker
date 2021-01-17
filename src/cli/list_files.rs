@@ -13,19 +13,19 @@ use structopt::StructOpt;
 /// List all files in the local database
 #[derive(Debug, StructOpt)]
 pub struct ListFilesOpts {
-    /// Output per file statistics
+    /// Hide per file statistics and only show date, device and UUID of entries
     #[structopt(short, long)]
-    stat: bool,
+    short: bool,
     /// List files after the specified date (YYYY-MM-DD format)
     #[structopt(short="-S", long, parse(try_from_str = parse_date))]
     since: Option<NaiveDate>,
     /// List files before the specified date (YYYY-MM-DD format)
     #[structopt(short="-U", long, parse(try_from_str = parse_date))]
     until: Option<NaiveDate>,
-    /// Reverse file ordering to be new -> old
+    /// Reverse file ordering to be old -> new
     #[structopt(short, long)]
     reverse: bool,
-    /// Limit results returned to "N" entries
+    /// Limit results returned to "N" entries ()
     #[structopt(short, long)]
     number: Option<usize>,
 }
@@ -45,9 +45,9 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         params.push(end_date as &dyn rusqlite::ToSql);
     }
     if opts.reverse {
-        query.order_by("time_created DESC");
-    } else {
         query.order_by("time_created ASC");
+    } else {
+        query.order_by("time_created DESC");
     }
     if let Some(value) = opts.number {
         query.limit(value);
@@ -64,13 +64,13 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
     let values: Rc<Vec<Value>> = Rc::new(file_ids); // usage of select from rarray needs an Rc
 
     // grab aggregrate and lap stats
-    let (agg_data, lap_data) = if opts.stat {
+    let (agg_data, lap_data) = if opts.short {
+        (HashMap::new(), HashMap::new())
+    } else {
         (
             collect_aggregate_stats(&conn, Rc::clone(&values))?,
             collect_lap_stats(&conn, Rc::clone(&values))?,
         )
-    } else {
-        (HashMap::new(), HashMap::new())
     };
 
     println!("Date, Device, UUID");
