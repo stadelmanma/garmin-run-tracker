@@ -13,10 +13,10 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub struct RouteImageOpts {
     /// Full or partial UUID of file we want to generate route image for (use list-files command
-    /// to see UUIDs)
+    /// to see UUIDs). The special identifier :last will return the most recent file import.
     #[structopt(name = "FILE_UUID")]
     uuid: String,
-    /// name of file to output image data to, if "-" is used we will write to stdout
+    /// name of file to output image data to, if not provided or "-" is used data is written to stdout
     #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
 }
