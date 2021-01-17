@@ -1,8 +1,8 @@
 //! Access elevation data for a given GPS location using an external source
 use crate::config::ServiceConfig;
-use crate::db::QueryStringBuilder;
+use crate::db::{find_file_by_uuid, QueryStringBuilder};
 use crate::{Error, Location};
-use log::{error, info};
+use log::info;
 use rusqlite::{params, Transaction};
 
 mod opentopodata;
@@ -50,19 +50,18 @@ pub fn update_elevation_data<T: ElevationDataSource>(
     }
 
     // filter by UUID if one was defined
-    let mut file_id: Option<i32> = None;
-    if let Some(uuid) = uuid {
-        if let Ok(id) = tx.query_row("select id from files where uuid = ?", params![uuid], |r| {
-            r.get::<usize, i32>(0)
-        }) {
-            file_id = Some(id);
-            rec_query.and_where("file_id = ?");
-            lap_query.and_where("file_id = ?");
-        } else {
-            error!("FIT File with UUID='{}' does not exist", uuid);
-            return Err(Box::new(Error::FileDoesNotExistError(uuid.to_string())));
+    let file_id = if let Some(uuid) = uuid {
+        match find_file_by_uuid(tx, &uuid) {
+            Ok(info) => {
+                rec_query.and_where("file_id = ?");
+                lap_query.and_where("file_id = ?");
+                Some(info.id)
+            }
+            Err(e) => return Err(Box::new(e)),
         }
-    }
+    } else {
+        None
+    };
 
     // fetch and save elevation data for record and lap messages
     let params: Vec<&dyn rusqlite::ToSql> = file_id

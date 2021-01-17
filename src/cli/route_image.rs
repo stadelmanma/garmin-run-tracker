@@ -1,8 +1,8 @@
 //! Define route image subcommand
 use crate::config::Config;
-use crate::open_db_connection;
+use crate::db::{find_file_by_uuid, open_db_connection};
 use crate::services::visualization::route::Marker;
-use crate::{Error, Location};
+use crate::Location;
 use rusqlite::{params, Result};
 use std::fs::File;
 use std::io::{self, Write};
@@ -28,17 +28,9 @@ pub fn route_image_command(
     let conn = open_db_connection()?;
 
     // locate file_id from uuid
-    let file_id = match conn.query_row(
-        "select id from files where uuid = ?",
-        params![opts.uuid],
-        |r| r.get::<usize, i32>(0),
-    ) {
-        Ok(id) => id,
-        Err(_) => {
-            return Err(Box::new(Error::FileDoesNotExistError(
-                opts.uuid.to_string(),
-            )));
-        }
+    let file_id = match find_file_by_uuid(&conn, &opts.uuid) {
+        Ok(info) => info.id,
+        Err(e) => return Err(Box::new(e)),
     };
 
     // TODO throw an eror if the trace is empty

@@ -16,8 +16,8 @@ pub mod cli;
 pub mod config;
 pub use config::Config;
 mod db;
-use db::SqlValue;
 pub use db::{create_database, open_db_connection};
+use db::{find_file_by_uuid, SqlValue};
 mod error;
 pub use error::Error;
 pub mod gps;
@@ -94,9 +94,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
     trace!("UUID hash of file: {}", uuid);
 
     // connect to database and see if the UUID is aleady present before parsing
-    if let Ok(()) = tx.query_row("select id from files where uuid = ?", params![uuid], |_| {
-        Ok(())
-    }) {
+    if let Ok(_) = find_file_by_uuid(tx, &uuid) {
         return Err(Error::DuplicateFileError(uuid));
     }
 
