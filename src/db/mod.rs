@@ -175,10 +175,20 @@ pub fn new_file_info_query() -> QueryStringBuilder<'static> {
     )
 }
 
-/// Attempt to locate a specific file by it's UUID
+/// Attempt to locate a specific file by it's full or partial UUID, partial UUIDs that aren't
+/// unique return the most recent match (similar to short git commit SHAs).
 pub fn find_file_by_uuid(conn: &Connection, uuid: &str) -> Result<FileInfo, Error> {
     let mut query = new_file_info_query();
-    query.and_where("uuid = ?");
+    let pattern: String;
+    let uuid = if uuid.len() == 36 {
+        query.and_where("uuid = ?");
+        uuid
+    } else {
+        query.and_where("uuid LIKE ?"); // partial string match
+        query.order_by("time_created DESC");
+        pattern = format!("{}%", uuid); // save value here so we can only copy uuid on partials
+        &pattern
+    };
     conn.query_row(&query.to_string(), params![uuid], |row| {
         FileInfo::try_from(row)
     })

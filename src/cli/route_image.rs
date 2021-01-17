@@ -12,7 +12,8 @@ use structopt::StructOpt;
 /// Generate an image of the running route based on the file's waypoints
 #[derive(Debug, StructOpt)]
 pub struct RouteImageOpts {
-    /// UUID of file we want to generate route info for (use list-files command to see UUIDs)
+    /// Full or partial UUID of file we want to generate route image for (use list-files command
+    /// to see UUIDs)
     #[structopt(name = "FILE_UUID")]
     uuid: String,
     /// name of file to output image data to, if "-" is used we will write to stdout
