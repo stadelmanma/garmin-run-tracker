@@ -12,6 +12,8 @@ mod list_files;
 use list_files::{list_files_command, ListFilesOpts};
 mod route_image;
 use route_image::{route_image_command, RouteImageOpts};
+mod show;
+use show::{show_command, ShowOpts};
 
 /// Parse FIT formatted files and import their data into the local database
 #[derive(Debug, StructOpt)]
@@ -65,6 +67,9 @@ pub enum Command {
     /// Create a route image from the GPS trace
     #[structopt(name = "route-image")]
     RouteImage(RouteImageOpts),
+    /// Show file statistics and plot running data
+    #[structopt(name = "show")]
+    Show(ShowOpts),
 }
 
 impl Command {
@@ -75,6 +80,7 @@ impl Command {
             Command::Import(opts) => import_command(config, opts),
             Command::Listfiles(opts) => list_files_command(opts),
             Command::RouteImage(opts) => route_image_command(config, opts),
+            Command::Show(opts) => show_command(config, opts),
         }
     }
 }
