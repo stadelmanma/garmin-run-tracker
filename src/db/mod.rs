@@ -4,7 +4,7 @@ use chrono::Utc;
 use fitparser::Value;
 use log::debug;
 use rusqlite::types::ToSqlOutput;
-use rusqlite::{Connection, Result, ToSql};
+use rusqlite::{params, Connection, Result, ToSql, Transaction};
 use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Deref;
@@ -176,6 +176,14 @@ pub fn new_file_info_query() -> QueryStringBuilder<'static> {
 }
 
 /// Attempt to locate a specific file by it's UUID
-pub fn find_file_by_uuid(uuid: &str) -> Option<FileInfo> {
-    None
+pub fn find_file_by_uuid(tx: &Transaction, uuid: &str) -> Result<FileInfo, Error> {
+    let mut query = new_file_info_query();
+    query.and_where("uuid = ?");
+    tx.query_row(&query.to_string(), params![uuid], |row| {
+        FileInfo::try_from(row)
+    })
+    .map_err(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => Error::FileDoesNotExistError(uuid.to_string()),
+        _ => Error::from(e),
+    })
 }
