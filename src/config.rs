@@ -1,7 +1,7 @@
 //! Store application configuration that gets read from disk
 use crate::services::{
-    new_elevation_handler, new_route_visualization_handler, ElevationDataSource,
-    RouteDrawingService,
+    new_elevation_handler, new_plotting_visualization_handler, new_route_visualization_handler,
+    DataPlottingService, ElevationDataSource, RouteDrawingService,
 };
 use crate::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -16,6 +16,7 @@ use std::str::FromStr;
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ServiceType {
+    DataPlotting,
     Elevation,
     RouteVisualization,
 }
@@ -161,8 +162,23 @@ impl Config {
         match self.services.get(&ServiceType::RouteVisualization) {
             Some(cfg) => new_route_visualization_handler(cfg),
             None => Err(Error::UnknownServiceHandler(
-                "no service configuration defined for elevation".to_string(),
+                "no service configuration defined for route visualization".to_string(),
             )),
+        }
+    }
+
+    pub fn get_plotting_visualization_handler(
+        &self,
+    ) -> Result<Box<dyn DataPlottingService>, Error> {
+        match self.services.get(&ServiceType::DataPlotting) {
+            Some(cfg) => new_plotting_visualization_handler(cfg),
+            None => {
+                // use terminal as default plotter since we always have that
+                new_plotting_visualization_handler(&ServiceConfig {
+                    handler: "tui".to_string(),
+                    configuration: HashMap::new(),
+                })
+            }
         }
     }
 }
