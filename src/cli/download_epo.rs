@@ -54,8 +54,14 @@ pub fn download_epo_command(
     } else {
         for path in config.epo_data_paths().iter().map(|s| PathBuf::from(s)) {
             info!("Writing EPO data to {:?}", path);
-            let mut fp = File::create(path)?;
-            fp.write_all(&epo_data)?
+            match File::create(&path) {
+                Ok(mut fp) => fp.write_all(&epo_data)?,
+                Err(e) => {
+                    // emit warning message but swallow actual failure in case we have multiple
+                    // paths to write to and not all devices are mounted
+                    warn!("Could not write data to {:?} - {}", path, e);
+                }
+            }
         }
     }
 
