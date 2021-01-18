@@ -10,10 +10,41 @@ pub type DataSeries<'a> = &'a [(f64, f64)];
 /// Defines the labels applied to the plot
 #[derive(Debug)]
 pub struct PlotLabels {
-    series: Vec<String>,
+    title: String,
     x_axis: String,
     y_axis: String,
-    title: String,
+    series: Vec<String>,
+}
+
+impl PlotLabels {
+    pub fn new(title: String, x_axis: String, y_axis: String) -> Self {
+        PlotLabels {
+            series: Vec::new(),
+            x_axis,
+            y_axis,
+            title,
+        }
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn x(&self) -> &str {
+        &self.x_axis
+    }
+
+    pub fn y(&self) -> &str {
+        &self.y_axis
+    }
+
+    pub fn series(&self) -> &[String] {
+        &self.series
+    }
+
+    pub fn add_series_label(&mut self, label: String) {
+        self.series.push(label);
+    }
 }
 
 /// trait that defines how to plot a set of data series
@@ -22,8 +53,6 @@ pub trait DataPlottingService {
     fn plot(
         &self,
         series: &[DataSeries],
-        x: &[f64],
-        y: &[f64],
         labels: &PlotLabels,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>>;
 }
