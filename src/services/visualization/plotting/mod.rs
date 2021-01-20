@@ -25,6 +25,44 @@ impl<'a> DataSeries<'a> {
     }
 }
 
+impl<'a> IntoIterator for &DataSeries<'a> {
+    type Item = (f64, f64);
+    type IntoIter = DataSeriesIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DataSeriesIter {
+            data: self.data(),
+            idx: 0,
+        }
+    }
+}
+
+pub struct DataSeriesIter<'a> {
+    data: &'a [(f64, f64)],
+    idx: usize,
+}
+
+impl<'a> Iterator for DataSeriesIter<'a> {
+    // we will be counting with usize
+    type Item = (f64, f64);
+
+    // next() is the only required method
+    fn next(&mut self) -> Option<Self::Item> {
+        // Check to see if we've finished counting or not.
+        self.idx += 1;
+        match self.data.get(self.idx) {
+            Some(v) => {
+                //self.idx += 1;
+                Some(*v)
+            }
+            None => {
+                //self.idx = 0; // reset counter so we can loop over this again
+                None
+            }
+        }
+    }
+}
+
 /// Defines the labels applied to the plot
 #[derive(Debug)]
 pub struct Plot<'a> {

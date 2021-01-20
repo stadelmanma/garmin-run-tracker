@@ -42,8 +42,8 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
     let mut elevation: Vec<f64> = Vec::new();
     let mut heart_rate: Vec<f64> = Vec::new();
     while let Some(row) = rows.next()? {
-        distance.push(row.get(0)?);
-        speed.push(1.0 / (row.get::<usize, f64>(1)? * 0.00062137 * 60.0));
+        distance.push(row.get::<usize, f64>(0)? * 0.0006213712);
+        speed.push(1.0 / (row.get::<usize, f64>(1)? * 0.0006213712 * 60.0));
         // these two may or may not have data available
         row.get::<usize, f64>(2)
             .into_iter()
@@ -54,7 +54,7 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
     }
     let mut pace_plot = Plot::new(
         "".to_string(),
-        "Distance".to_string(),
+        "Distance [mi]".to_string(),
         "Pace [min/mile]".to_string(),
     );
     let series1_data: Vec<(f64, f64)> = distance
@@ -66,7 +66,7 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
 
     let mut elev_plot = Plot::new(
         "".to_string(),
-        "Distance".to_string(),
+        "Distance [mi]".to_string(),
         "Elevation [ft]".to_string(),
     );
     let series2_data: Vec<(f64, f64)> = distance
@@ -78,7 +78,7 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
 
     let mut hr_plot = Plot::new(
         "".to_string(),
-        "Distance".to_string(),
+        "Distance [mi]".to_string(),
         "Heart Rate [bpm]".to_string(),
     );
     let series3_data: Vec<(f64, f64)> = distance
