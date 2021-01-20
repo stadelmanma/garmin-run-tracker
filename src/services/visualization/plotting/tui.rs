@@ -2,6 +2,7 @@
 use super::{DataPlottingService, DataSeries, Plot};
 use crate::config::ServiceConfig;
 use crate::Error;
+use std::cmp::max;
 use std::io;
 use tui::{
     backend::CrosstermBackend,
@@ -37,12 +38,13 @@ impl DataPlottingService for TerminalPlotter {
 
         terminal.clear()?;
         terminal.draw(|f| {
-            let constraints = vec![Constraint::Ratio(1, 2); plots.len()];
+            let constraints = vec![Constraint::Ratio(1, plots.len() as u32); plots.len()];
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(1)
                 .constraints(constraints)
                 .split(f.size());
+            let y_nticks = max(2, 7 - plots.len()); // reduce ticks if less vertical space
             for (chunk, plot) in chunks.into_iter().zip(plots) {
                 let datasets = plot
                     .series()
@@ -97,7 +99,7 @@ impl DataPlottingService for TerminalPlotter {
                             .style(Style::default().fg(Color::White))
                             .bounds([y_min, y_max])
                             .labels(
-                                (0..=5)
+                                (0..=y_nticks)
                                     .map(|n| Span::from(format!("{:.3}", y_max * (n as f64 / 5.0))))
                                     .collect(),
                             ),
