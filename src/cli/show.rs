@@ -43,7 +43,13 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
     let mut heart_rate: Vec<f64> = Vec::new();
     while let Some(row) = rows.next()? {
         distance.push(row.get::<usize, f64>(0)? * 0.0006213712);
-        speed.push(1.0 / (row.get::<usize, f64>(1)? * 0.0006213712 * 60.0));
+        if let Ok(v) = row.get::<usize, f64>(1) {
+            if v != 0.0 {
+                speed.push(1.0 / (row.get::<usize, f64>(1)? * 0.0006213712 * 60.0));
+            } else {
+                speed.push(0.0); // ideally this would just be a gap in the graph
+            }
+        }
         // these two may or may not have data available
         row.get::<usize, f64>(2)
             .into_iter()
