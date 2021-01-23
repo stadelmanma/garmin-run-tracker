@@ -52,6 +52,7 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
             .into_iter()
             .for_each(|v| heart_rate.push(v));
     }
+
     let mut pace_plot = Plot::new(
         "".to_string(),
         "Distance [mi]".to_string(),
@@ -88,7 +89,18 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
         .collect();
     hr_plot.add_series(DataSeries::new("Heart Rate", &series3_data));
 
-    plotter.plot(&[&pace_plot, &elev_plot, &hr_plot])?;
+    // only plot if we have data
+    let mut all_plots = Vec::with_capacity(3);
+    if !series1_data.is_empty() {
+        all_plots.push(&pace_plot);
+    }
+    if !series2_data.is_empty() {
+        all_plots.push(&elev_plot);
+    }
+    if !series3_data.is_empty() {
+        all_plots.push(&hr_plot);
+    }
+    plotter.plot(&all_plots)?;
 
     Ok(())
 }
