@@ -59,9 +59,10 @@ for external services used by the application.
 
 ## Features
 
+
 ### Duplicate File Detection
 
-Duplicate files are currently detected by taking the SHA256 has of the
+Duplicate files are currently detected by taking the SHA256 hash of the
 entire content and then truncating it down into a 128bit UUID format for
 storage. This method is robust in that if even a single byte changes it
 is a "new" file. However, it is also very IO intensive since the duplicate
@@ -69,6 +70,7 @@ file still gets read in it's entirety. This process could be easily
 reimplemented in parallel to speed up the wall clock time for large import
 sets. A second less robust, but much faster, method would be just checking
 filenames if the import location is known to use a unique naming convention.
+
 
 ### Adding Elevation Data
 
@@ -112,12 +114,63 @@ need to be wary of rate limiting. The current code implementation makes
 no effort to "delay" requests to obey API guidelines since it's not
 necessary for a locally hosted version.
 
+
 ### Static Route Images
 
 Static route images are generated using third party services that provide
 map tiles and/or route plotting capabilities. This code was developed using
 a locally hosted instance of [openmaptiles](https://openmaptiles.org/) as
 well as the [MapBox API](https://www.mapbox.com/).
+
+Support for this feature is done through the `RouteDrawingService` trait
+which has a `draw_route` method. The route drawing service accepts a GPS
+trace (of the form `&[Location]`) and a slice of `&[Marker]` structs
+that can be used to define mile markers, start and end points, etc.
+(if supported).
+
+#### Default Configurations for Route Drawers
+
+Below is the deafault configuration options for each service. Only a single
+handler can be defined right now and not all features of the external
+service may be supported.
+
+##### MapBox
+See API docs here: https://docs.mapbox.com/api/maps/static-images/
+```yaml
+services:
+    route_visualization:
+        handler: mapbox
+        configuration:
+            base_url: "https://api.mapbox.com"
+            api_version: "v1"
+            username: "mapbox"
+            style: "streets-v11"  # map style, several are offered
+            image_width: 1280  # These are the maximum image dimensions
+            image_height: 1280
+            marker_color: "f07272"  # any hexcode color for mile markers
+            marker_style: "l"  # Can be "l" (large) or "s" (small)
+            stroke_color: "f44"  # any hexcode color for the GPS trace line
+            stroke_width: 5
+            stroke_opacity: 0.75
+            access_token: null  # required API access token
+```
+
+
+##### OpenMapTiles
+See API docs here: https://support.maptiler.com/i26-static-maps-for-your-web
+```yaml
+services:
+    route_visualization:
+        handler: openmaptiles
+        configuration:
+            base_url: http://localhost:8080  # locally hosted by default
+            style: osm-bright  # map tile style
+            image_width: 1800
+            image_height: 1200
+            image_format: png  # PNG image format (jpg also supported)
+            stroke_color: red  # Color of the GPS trace line
+            stroke_width: 3
+```
 
 
 ### EPO Data Downloading
@@ -126,14 +179,31 @@ EPO data can be downloaded from the Garmin website and stored on your watch.
 This was tested with a Forerunner 25 and uses the same logic as the
 [postrunner](https://github.com/scrapper/postrunner) application. The
 `epo_data_paths` top level key can specify one or more locations to save
-EPO data for. See the `config-example.yml` file for details.
+EPO data for.
+
+```yaml
+# locations to save download EPO data to (usually this will be
+# /[mount-point]/GARMIN/GARMIN/REMOTESW/EPO.BIN)
+epo_data_paths:
+    - /media/mstadelman/GARMIN/GARMIN/REMOTESW/EPO.BIN
+```
+
+
+### Data Plotting
+
+A simple terminal-based plotting handler is provided and can be used via
+the `show` sub command. This will plot the pace, elevation and heart rate
+as a function of distance. The terminal based plotting is simplistic but
+allows for quick visualization of key data. As of right now it does not
+accept any changes based on configuration and serves as the default and
+only data plotting service when one isn't defined.
+
 
 ### Future
 
 Additional features are being considered/planned out, such as:
  * Output various statistics like "Personal Bests"
  * Output other aggregate data like weekly mileage
- * Add data plotting capabilities
  * Allow runs to be labeled/named, i.e. "morgantown marathon"
  * Allow comments on runs
  * ...
