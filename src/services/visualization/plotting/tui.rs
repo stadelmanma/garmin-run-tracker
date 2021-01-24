@@ -1,5 +1,5 @@
 //! Use the tui crate to draw plots directly on the terminal
-use super::{DataPlottingService, DataSeries, Plot};
+use super::{DataPlottingService, Plot};
 use crate::config::ServiceConfig;
 use crate::Error;
 use std::cmp::max;
@@ -7,10 +7,10 @@ use std::io;
 use tui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     symbols,
     text::Span,
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
+    widgets::{Axis, Block, Chart, Dataset, GraphType},
     Terminal,
 };
 
