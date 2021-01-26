@@ -8,6 +8,8 @@ use rusqlite::{params, Transaction};
 
 mod opentopodata;
 pub use opentopodata::OpenTopoData;
+mod mapquest_elevation_api;
+pub use mapquest_elevation_api::MapquestElevationApi;
 
 /// trait that defines how elevation data should be added for an array of lat, long coordintes
 pub trait ElevationDataSource {
@@ -18,9 +20,12 @@ pub trait ElevationDataSource {
     ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
-pub fn new_elevation_handler(config: &ServiceConfig) -> Result<impl ElevationDataSource, Error> {
+pub fn new_elevation_handler(
+    config: &ServiceConfig,
+) -> Result<Box<dyn ElevationDataSource>, Error> {
     match config.handler() {
-        "opentopodata" => Ok(OpenTopoData::from_config(config)?),
+        "opentopodata" => Ok(Box::new(OpenTopoData::from_config(config)?)),
+        "mapquest" => Ok(Box::new(MapquestElevationApi::from_config(config)?)),
         _ => Err(Error::UnknownServiceHandler(format!(
             "no elevation handler exists for: {}",
             config.handler()

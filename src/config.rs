@@ -149,7 +149,7 @@ impl Config {
         self.log_level
     }
 
-    pub fn get_elevation_handler(&self) -> Result<impl ElevationDataSource, Error> {
+    pub fn get_elevation_handler(&self) -> Result<Box<dyn ElevationDataSource>, Error> {
         match self.services.get(&ServiceType::Elevation) {
             Some(cfg) => new_elevation_handler(cfg),
             None => Err(Error::UnknownServiceHandler(
