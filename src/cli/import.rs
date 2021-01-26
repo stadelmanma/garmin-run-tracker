@@ -80,11 +80,12 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
 
     // add elevation data after importing all the files
     if let Some(hdl) = elevation_hdl {
+        //let hdl: Box<dyn crate::services::ElevationDataSource> = hdl;
         // we overwrite here on the assumption that API provides more accurate values than the
         // device, if the device provided any at all
         for uuid in imported_uuids {
             let tx = conn.transaction()?;
-            match update_elevation_data(&tx, &hdl, Some(&uuid), true) {
+            match update_elevation_data(&tx, hdl.as_ref(), Some(&uuid), true) {
                 Ok(_) => {
                     tx.commit()?;
                     info!("Successfully imported elevation for FIT file '{}'", uuid);
@@ -104,7 +105,7 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         // overwrite = false to only hit NULL values.
         if opts.fix_missing_elevation {
             let tx = conn.transaction()?;
-            update_elevation_data(&tx, &hdl, None, false)?;
+            update_elevation_data(&tx, hdl.as_ref(), None, false)?;
             tx.commit()?;
         }
     }

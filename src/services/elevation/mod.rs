@@ -34,7 +34,7 @@ pub fn new_elevation_handler(
 }
 
 /// Update elevation for a FIT file or across all data in the database
-pub fn update_elevation_data<T: ElevationDataSource>(
+pub fn update_elevation_data<T: ElevationDataSource+ ?Sized>(
     tx: &Transaction,
     src: &T,
     uuid: Option<&str>,
@@ -102,7 +102,7 @@ pub fn update_elevation_data<T: ElevationDataSource>(
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
 /// data back into the database
-fn add_record_elevation_data<T: ElevationDataSource>(
+fn add_record_elevation_data<T: ElevationDataSource+ ?Sized>(
     src: &T,
     tx: &rusqlite::Transaction,
     mut rows: rusqlite::Rows,
@@ -128,7 +128,7 @@ fn add_record_elevation_data<T: ElevationDataSource>(
 
 /// Updates a set of rows with elevation data by querying the elevation API and then passing that
 /// data back into the database
-fn add_lap_elevation_data<T: ElevationDataSource>(
+fn add_lap_elevation_data<T: ElevationDataSource+ ?Sized>(
     src: &T,
     tx: &rusqlite::Transaction,
     mut rows: rusqlite::Rows,
