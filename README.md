@@ -57,6 +57,9 @@ copied into that location as a starting point. The configuration file
 defines a default log level, automatic import paths and sets parameters
 for external services used by the application.
 
+Details for how to configure specific services are in the relevant sections
+below.
+
 ## Features
 
 
@@ -76,11 +79,39 @@ filenames if the import location is known to use a unique naming convention.
 
 Elevation data does not always comes with the watch but generally can be
 obtained via various APIs from third-party sources. This code was developed
-using a locally hosted instance of [opentopodata](https://www.opentopodata.org/).
+using a locally hosted instance of [opentopodata](https://www.opentopodata.org/)
+as well as the [MapQuest Open Elevation API](https://developer.mapquest.com/documentation/open/elevation-api/).
 However, any data source can be configured to work via the `ElevationDataSource`
 trait which requires a single method to be implemented. That method
 `request_elevation_data` fetches elevation data for a vector of latitude
 and longitude coordinate pairs, stored as a `Location` struct.
+
+#### Default Configuration for Elevation Data Sources
+
+##### MapQuest
+
+See their API docs here: https://developer.mapquest.com/documentation/open/elevation-api/
+```yaml
+services:
+  elevation:
+    handler: mapquest
+    configuration:
+      api_key: string  # required API access token
+      batch_size: 250
+```
+
+##### OpenTopoData
+
+See their API docs here: https://www.opentopodata.org/api/
+```yaml
+services:
+  elevation:
+    handler: opentopodata  # name of module to use
+    configuration:  # these parameters will be available to the constructor
+     base_url: http://localhost:5000
+     dataset: ned10m
+     batch_size: 100
+```
 
 See their documentation on how to setup a local instance and load it with
 your desired elevation dataset (if needed). The
@@ -107,12 +138,6 @@ datasets:
     filename_epsg: 4326  # This is the default value.
     filename_tile_size: 1  # This is the default value.
 ```
-
-It would be trivial to swap out the locally hosted version of opentopodata
-for the public API hosted at https://api.opentopodata.org/ but one would
-need to be wary of rate limiting. The current code implementation makes
-no effort to "delay" requests to obey API guidelines since it's not
-necessary for a locally hosted version.
 
 
 ### Static Route Images
