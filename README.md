@@ -78,13 +78,15 @@ filenames if the import location is known to use a unique naming convention.
 ### Adding Elevation Data
 
 Elevation data does not always comes with the watch but generally can be
-obtained via various APIs from third-party sources. This code was developed
-using a locally hosted instance of [opentopodata](https://www.opentopodata.org/)
-as well as the [MapQuest Open Elevation API](https://developer.mapquest.com/documentation/open/elevation-api/).
-However, any data source can be configured to work via the `ElevationDataSource`
-trait which requires a single method to be implemented. That method
-`request_elevation_data` fetches elevation data for a vector of latitude
-and longitude coordinate pairs, stored as a `Location` struct.
+obtained via various APIs from third-party sources. This code was
+developed using a locally hosted instance of
+[opentopodata](https://www.opentopodata.org/) as well as the [MapQuest
+Open Elevation API](https://developer.mapquest.com/documentation/open/elevation-api/).
+However, any data source (e.g. Google, Azure, etc.) can be added by
+implementing the `ElevationDataSource` trait which requires a single
+method to be implemented. That method `request_elevation_data` fetches
+elevation data for a vector of latitude and longitude coordinate pairs,
+stored as a `Location` struct.
 
 #### Default Configuration for Elevation Data Sources
 
@@ -108,35 +110,10 @@ services:
   elevation:
     handler: opentopodata  # name of module to use
     configuration:  # these parameters will be available to the constructor
-     base_url: http://localhost:5000
+     base_url: https://api.opentopodata.org
      dataset: ned10m
      batch_size: 100
-```
-
-See their documentation on how to setup a local instance and load it with
-your desired elevation dataset (if needed). The
-[ned](https://www.opentopodata.org/datasets/ned/) dataset is used here
-which maps nearly the all of North America at 30m and US in higher
-10m resolution.
-
-The config.yml used to setup the local opentopodata server. NOTE: This
-is not the same config used by the garmin-run-tracker application.
-(See the config-example.yaml file for how we configure our access to this
-service).
-```yaml
-# 400 error will be thrown above this limit.
-max_locations_per_request: 100
-
-# CORS header. Should be None for no CORS, '*' for all domains, or a url with
-# protocol, domain, and port ('https://api.example.com/'). Default is null.
-access_control_allow_origin: null
-
-# config for 1/3 arcsecond NED data
-datasets:
-  - name: ned10m
-    path: data/ned10m/
-    filename_epsg: 4326  # This is the default value.
-    filename_tile_size: 1  # This is the default value.
+     requests_per_sec: -1  # negative for
 ```
 
 

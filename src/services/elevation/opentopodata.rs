@@ -1,11 +1,13 @@
 //! Import elevation data based on lat, long coordintes using the opentopodata API
 use super::ElevationDataSource;
-use crate::config::ServiceConfig;
-use crate::gps::Location;
-use crate::Error;
+use crate::{
+    config::ServiceConfig, gps::Location, set_float_param_from_config, set_int_param_from_config,
+    set_string_param_from_config, Error,
+};
 use log::warn;
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use std::{thread, time};
 
 #[derive(Debug, Deserialize)]
 struct ErrorResponse {
@@ -26,17 +28,26 @@ struct SuccessResponse {
 /// Defines the connection parameters to reqest elevation data from an instance of opentopodata
 pub struct OpenTopoData {
     base_url: String,
+    api_version: &'static str,
     dataset: String,
     batch_size: usize,
+    requests_per_sec: f32,
 }
 
 impl OpenTopoData {
     /// Create a new data source that uses the OpenTopoData version 1 API
-    pub fn new(base_url: String, dataset: String, batch_size: usize) -> Self {
+    pub fn new(
+        base_url: String,
+        dataset: String,
+        batch_size: usize,
+        requests_per_sec: f32,
+    ) -> Self {
         OpenTopoData {
             base_url,
+            api_version: "v1",
             dataset,
             batch_size,
+            requests_per_sec,
         }
     }
 
@@ -44,20 +55,11 @@ impl OpenTopoData {
         let mut base = Self::default();
         for key in config.parameters() {
             match key.as_ref() {
-                "base_url" => {
-                    if let Some(val) = config.get_parameter_as_string(key) {
-                        base.base_url = val?
-                    };
-                }
-                "dataset" => {
-                    if let Some(val) = config.get_parameter_as_string(key) {
-                        base.dataset = val?
-                    };
-                }
-                "batch_size" => {
-                    if let Some(val) = config.get_parameter_as_i64(key) {
-                        base.batch_size = val? as usize
-                    };
+                "base_url" => set_string_param_from_config!(base, base_url, config),
+                "dataset" => set_string_param_from_config!(base, dataset, config),
+                "batch_size" => set_int_param_from_config!(base, batch_size, config, usize),
+                "requests_per_sec" => {
+                    set_float_param_from_config!(base, requests_per_sec, config, f32)
                 }
                 _ => warn!(
                     "unknown configuration parameter for OpenTopoData: {}={:?}",
@@ -71,7 +73,7 @@ impl OpenTopoData {
     }
 
     fn request_url(&self) -> String {
-        format!("{}/v1/{}", self.base_url, self.dataset)
+        format!("{}/{}/{}", self.base_url, self.api_version, self.dataset)
     }
 }
 
@@ -79,8 +81,10 @@ impl Default for OpenTopoData {
     fn default() -> Self {
         OpenTopoData {
             base_url: "http://localhost:5000".to_string(),
+            api_version: "v1",
             dataset: "ned10m".to_string(), // works well for USA/Canada
             batch_size: 100,
+            requests_per_sec: -1.0,
         }
     }
 }
@@ -92,6 +96,12 @@ impl ElevationDataSource for OpenTopoData {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // define base url and batch size as setup in opentopodata instance
         let request_url = self.request_url();
+        let delay = if self.requests_per_sec > 0.0 {
+            (1.0e6 / self.requests_per_sec) as u64 // store as micro seconds
+        } else {
+            0 // treat zero as if a limit wasn't imposed to prevent subtle runtime error
+        };
+        let delay = time::Duration::from_micros(delay);
 
         // create client and start fetching data in batches
         let client = Client::new();
@@ -120,6 +130,7 @@ impl ElevationDataSource for OpenTopoData {
                 let json: ErrorResponse = resp.json()?;
                 return Err(Box::new(Error::RequestError(code, json.error)));
             }
+            thread::sleep(delay);
         }
 
         Ok(())
