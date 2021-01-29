@@ -38,10 +38,8 @@ impl Cli {
             LevelFilter::Error
         } else if self.verbose == 1 {
             LevelFilter::Debug
-        } else if self.verbose == 2 {
+        } else if self.verbose > 1 {
             LevelFilter::Trace
-        } else if self.verbose > 2 {
-            LevelFilter::Off
         } else {
             default
         }
