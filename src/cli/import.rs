@@ -31,6 +31,14 @@ pub struct ImportOpts {
     no_elevation: bool,
 }
 
+/// How we should handle dupes during imports
+#[derive(Clone, Copy, Debug)]
+enum DuplicateFileBehavior {
+    Error,
+    Warn,
+    Suppress,
+}
+
 /// Implementation of the `import` subcommand
 pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn std::error::Error>> {
     // fetch elecation service from config
@@ -69,18 +77,23 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
     }
 
     // Import FIT files from the defined paths
+    let dupe_err = if import_paths.len() == 1 {
+        // only hard error if we have a single file import
+        DuplicateFileBehavior::Error
+    } else {
+        DuplicateFileBehavior::Warn
+    };
     let mut conn = open_db_connection()?;
     let imported_uuids = import_files(
         &mut conn,
         &import_paths,
         opts.recursive,
-        import_paths.len() == 1, // allow hard error on dupe if our only path is a single file
+        dupe_err,
         !opts.no_copy,
     )?;
 
     // add elevation data after importing all the files
     if let Some(hdl) = elevation_hdl {
-        //let hdl: Box<dyn crate::services::ElevationDataSource> = hdl;
         // we overwrite here on the assumption that API provides more accurate values than the
         // device, if the device provided any at all
         for uuid in imported_uuids {
@@ -118,7 +131,7 @@ fn import_files(
     conn: &mut Connection,
     paths: &[PathBuf],
     recursive: bool,
-    err_on_dupe: bool,
+    dupe_err: DuplicateFileBehavior,
     persist_file: bool,
 ) -> Result<Vec<String>, Error> {
     let mut uuids = Vec::new();
@@ -141,27 +154,35 @@ fn import_files(
                             .map_or(false, |e| e.to_string_lossy().to_ascii_lowercase() == "fit")
                 })
                 .collect();
-            // call function with found paths, `err_on_dupe` is set to false since we're recursing
-            import_files(conn, &new_paths, recursive, false, persist_file)
-                .map(|v| uuids.extend(v))?;
+            // call function with found paths, suppress dupe errors since we're recursing
+            import_files(
+                conn,
+                &new_paths,
+                recursive,
+                DuplicateFileBehavior::Suppress,
+                persist_file,
+            )
+            .map(|v| uuids.extend(v))?;
         } else {
             match import_file(conn, path, persist_file) {
                 Ok(file_info) => uuids.push(file_info.uuid().to_string()),
                 Err(e) => {
                     // handle dupe errors
                     match &e {
-                        Error::DuplicateFileError(_) => {
-                            if err_on_dupe {
-                                // if we are importing a single file and it's a dupe throw a hard error
+                        Error::DuplicateFileError(_) => match dupe_err {
+                            DuplicateFileBehavior::Error => {
                                 error!("{}", e);
                                 return Err(e);
-                            } else {
-                                // if we are importing multiple files or are being call recursively,
-                                // just warn about the dupe instead
+                            }
+                            DuplicateFileBehavior::Warn => {
                                 warn!("{}", e);
                                 continue;
                             }
-                        }
+                            DuplicateFileBehavior::Suppress => {
+                                trace!("{}", e);
+                                continue;
+                            }
+                        },
                         _ => return Err(e), // propagate all other errors
                     }
                 }
