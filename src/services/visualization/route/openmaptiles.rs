@@ -5,7 +5,6 @@ use crate::gps::Location;
 use crate::{set_int_param_from_config, set_string_param_from_config, Error};
 use log::warn;
 use reqwest::blocking::Client;
-use std::iter::FromIterator;
 
 /// Defines connection parameters to request course rotes from an OpenMapTiles server
 #[derive(Debug)]
@@ -21,10 +20,11 @@ pub struct OpenMapTiles {
 
 impl OpenMapTiles {
     pub fn new(base_url: String, style: String) -> Self {
-        let mut omt: OpenMapTiles = Default::default();
-        omt.base_url = base_url;
-        omt.style = style;
-        omt
+        OpenMapTiles {
+            base_url,
+            style,
+            ..Default::default()
+        }
     }
 
     pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
@@ -151,16 +151,16 @@ impl RouteDrawingService for OpenMapTiles {
             .send()?;
         if resp.status().is_success() {
             // return image data
-            return match resp.bytes() {
-                Ok(data) => Ok(Vec::from_iter(data.into_iter())),
+            match resp.bytes() {
+                Ok(data) => Ok(data.into_iter().collect()),
                 Err(e) => Err(Box::new(e)),
-            };
+            }
         } else {
             let code = resp.status();
-            return Err(Box::new(Error::RequestError(
+            Err(Box::new(Error::RequestError(
                 code,
                 "OpenMapTiles drawing failed".to_string(),
-            )));
+            )))
         }
     }
 }

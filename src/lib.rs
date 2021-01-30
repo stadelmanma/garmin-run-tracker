@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
-use std::iter::FromIterator;
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -69,9 +68,7 @@ impl FileInfo {
 }
 
 pub fn data_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or(PathBuf::new())
-        .join(DIRECTORY_NAME)
+    dirs::data_dir().unwrap_or_default().join(DIRECTORY_NAME)
 }
 
 pub fn devices_dir() -> PathBuf {
@@ -94,7 +91,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
     trace!("UUID hash of file: {}", uuid);
 
     // connect to database and see if the UUID is aleady present before parsing
-    if let Ok(_) = find_file_by_uuid(tx, &uuid) {
+    if find_file_by_uuid(tx, &uuid).is_ok() {
         return Err(Error::DuplicateFileError(uuid));
     }
 
@@ -132,7 +129,7 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
                 ])?;
                 let timestamp = data.get("time_created").map_or(Local.timestamp(0, 0), |v| {
                     if let Value::Timestamp(v) = v.deref() {
-                        v.clone()
+                        *v
                     } else {
                         Local.timestamp(0, 0)
                     }
@@ -241,9 +238,8 @@ fn generate_uuid(data: &[u8]) -> String {
 
 /// Build a hash map of field references that can be acessed by field name
 fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlValue> {
-    HashMap::from_iter(
-        mesg.fields()
-            .iter()
-            .map(|f| (f.name(), SqlValue::new(f.value()))),
-    )
+    mesg.fields()
+        .iter()
+        .map(|f| (f.name(), SqlValue::new(f.value())))
+        .collect()
 }

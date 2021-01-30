@@ -61,16 +61,12 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
     let mut import_paths: Vec<PathBuf> = if opts.skip_config_paths {
         Vec::new()
     } else {
-        config
-            .import_paths()
-            .iter()
-            .map(|s| PathBuf::from(s))
-            .collect()
+        config.import_paths().iter().map(PathBuf::from).collect()
     };
     import_paths.extend(opts.paths);
 
     // throw an error for no import paths unless we are fixing elevation
-    if import_paths.len() == 0 && !opts.fix_missing_elevation {
+    if import_paths.is_empty() && !opts.fix_missing_elevation {
         return Err(Box::new(Error::Other(
             "No import paths provided".to_string(),
         )));

@@ -48,7 +48,7 @@ impl ServiceConfig {
         if let Some(value) = self.configuration.get(key) {
             let value = value
                 .as_str()
-                .ok_or(Error::InvalidConfigurationValue(format!(
+                .ok_or_else(|| Error::InvalidConfigurationValue(format!(
                     "invalid value for {}.{}, expected a string: {:?}",
                     &self.handler, key, value
                 )))
@@ -63,7 +63,7 @@ impl ServiceConfig {
         if let Some(value) = self.configuration.get(key) {
             let value = value
                 .as_i64()
-                .ok_or(Error::InvalidConfigurationValue(format!(
+                .ok_or_else(|| Error::InvalidConfigurationValue(format!(
                     "invalid value for {}.{}, expected an integer: {:?}",
                     &self.handler, key, value
                 )));
@@ -77,7 +77,7 @@ impl ServiceConfig {
         if let Some(value) = self.configuration.get(key) {
             let value = value
                 .as_f64()
-                .ok_or(Error::InvalidConfigurationValue(format!(
+                .ok_or_else(|| Error::InvalidConfigurationValue(format!(
                     "invalid value for {}.{}, expected a floating point value: {:?}",
                     &self.handler, key, value
                 )));

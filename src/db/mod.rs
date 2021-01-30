@@ -192,7 +192,7 @@ pub fn find_file_by_uuid(conn: &Connection, uuid: &str) -> Result<FileInfo, Erro
         pattern = format!("{}%", uuid); // save value here so we can only copy uuid on partials
         params.push(&pattern);
     }
-    conn.query_row(&query.to_string(), &params, |row| FileInfo::try_from(row))
+    conn.query_row(&query.to_string(), &params, |r| FileInfo::try_from(r))
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => Error::FileDoesNotExistError(uuid.to_string()),
             _ => {

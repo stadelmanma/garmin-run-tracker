@@ -22,7 +22,7 @@ where
     D: Deserializer<'de>,
 {
     let value = f32::deserialize(deserializer)?;
-    if value == -32768.0 {
+    if (value as i32) == -32768 {
         Ok(None)
     } else {
         Ok(Some(value))
@@ -70,9 +70,10 @@ pub struct MapquestElevationApi {
 impl MapquestElevationApi {
     /// Create a new data source that uses the OpenTopoData version 1 API
     pub fn new(api_key: String) -> Self {
-        let mut base = Self::default();
-        base.api_key = api_key;
-        base
+        MapquestElevationApi {
+            api_key,
+            ..Default::default()
+        }
     }
 
     pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {

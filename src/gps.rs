@@ -1,6 +1,5 @@
 //! Module with GPS specific structures
 use std::char;
-use std::iter::IntoIterator;
 
 /// Stores a single geospatial point
 #[derive(Clone, Copy, Debug)]
@@ -53,7 +52,7 @@ pub fn encode_coordinates(coordinates: &[Location]) -> Result<String, String> {
     let mut output = "".to_string();
     let mut b = (0, 0);
 
-    for a in coordinates.into_iter() {
+    for a in coordinates {
         let a = (scale(a.latitude), scale(a.longitude));
         output = output + &encode(a.0, b.0)?;
         output = output + &encode(a.1, b.1)?;

@@ -53,7 +53,7 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         query.limit(value);
     }
     let mut stmt = conn.prepare(&query.to_string())?;
-    let rows = stmt.query_map(&params, |row| FileInfo::try_from(row))?;
+    let rows = stmt.query_map(&params, |r| FileInfo::try_from(r))?;
     let mut file_ids = Vec::new();
     let mut files = Vec::new();
     for r in rows {

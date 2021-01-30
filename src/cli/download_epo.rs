@@ -8,7 +8,6 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use std::fs::File;
 use std::io::{self, Write};
-use std::iter::FromIterator;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -52,7 +51,7 @@ pub fn download_epo_command(
             fp.write_all(&epo_data)?
         }
     } else {
-        for path in config.epo_data_paths().iter().map(|s| PathBuf::from(s)) {
+        for path in config.epo_data_paths().iter().map(PathBuf::from) {
             info!("Writing EPO data to {:?}", path);
             match File::create(&path) {
                 Ok(mut fp) => fp.write_all(&epo_data)?,
@@ -90,7 +89,7 @@ fn download_epo_data() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     if resp.status().is_success() {
         // return EPO data
         match resp.bytes() {
-            Ok(data) => Ok(Vec::from_iter(data.into_iter())),
+            Ok(data) => Ok(data.into_iter().collect()),
             Err(e) => Err(Box::new(e)),
         }
     } else {
@@ -147,7 +146,7 @@ fn validate_epo_data(data: &[u8]) -> Result<(), Error> {
     let ref_date = Utc.ymd(1980, 1, 6).and_hms(0, 0, 0);
     let now = Utc::now();
     let mut start_date = now;
-    let mut end_date = ref_date.clone();
+    let mut end_date = ref_date;
 
     // spit data into 72 byte chunks, each chunk represents data for a single satilite
     let mut offset = 0;

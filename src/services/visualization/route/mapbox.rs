@@ -5,10 +5,8 @@ use crate::gps::{encode_coordinates, Location};
 use crate::{
     set_float_param_from_config, set_int_param_from_config, set_string_param_from_config, Error,
 };
-use form_urlencoded;
 use log::warn;
 use reqwest::blocking::Client;
-use std::iter::FromIterator;
 
 /// Defines parameters to interact with the MapBox API
 #[derive(Debug)]
@@ -134,16 +132,16 @@ impl RouteDrawingService for MapBox {
             .send()?;
         if resp.status().is_success() {
             // return image data
-            return match resp.bytes() {
-                Ok(data) => Ok(Vec::from_iter(data.into_iter())),
+            match resp.bytes() {
+                Ok(data) => Ok(data.into_iter().collect()),
                 Err(e) => Err(Box::new(e)),
-            };
+            }
         } else {
             let code = resp.status();
-            return Err(Box::new(Error::RequestError(
+            Err(Box::new(Error::RequestError(
                 code,
                 "MapBox drawing failed".to_string(),
-            )));
+            )))
         }
     }
 }
