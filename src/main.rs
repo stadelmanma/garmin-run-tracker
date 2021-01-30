@@ -4,7 +4,7 @@ use simplelog::{Config as LoggerConfig, TermLogger, TerminalMode};
 use std::fs::create_dir_all;
 use structopt::StructOpt;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     // create data_dir if needed
     if !devices_dir().exists() {
         create_dir_all(devices_dir())?;
@@ -23,4 +23,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // execute any subcommands
     opt.execute_subcommand(config)
+}
+
+/// wrap actual "main" function so we can format errors with Display instead of Debug
+fn main() {
+    std::process::exit(match run() {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            1
+        }
+    });
 }
