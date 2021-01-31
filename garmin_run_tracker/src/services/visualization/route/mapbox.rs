@@ -1,6 +1,6 @@
 //! Use an instance of open map tiles to draw a course route
 use super::{Marker, RouteDrawingService};
-use crate::config::ServiceConfig;
+use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::gps::{encode_coordinates, Location};
 use crate::{
     set_float_param_from_config, set_int_param_from_config, set_string_param_from_config, Error,
@@ -26,34 +26,6 @@ pub struct MapBox {
 }
 
 impl MapBox {
-    pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
-        let mut base = Self::default();
-        for key in config.parameters() {
-            match key.as_ref() {
-                "base_url" => set_string_param_from_config!(base, base_url, config),
-                "api_version" => set_string_param_from_config!(base, api_version, config),
-                "username" => set_string_param_from_config!(base, username, config),
-                "style" => set_string_param_from_config!(base, style, config),
-                "image_width" => set_int_param_from_config!(base, image_width, config, u32),
-                "image_height" => set_int_param_from_config!(base, image_height, config, u32),
-                "marker_color" => set_string_param_from_config!(base, marker_color, config),
-                "marker_style" => set_string_param_from_config!(base, marker_style, config),
-                "stroke_color" => set_string_param_from_config!(base, stroke_color, config),
-                "stroke_width" => set_int_param_from_config!(base, stroke_width, config, u32),
-                "stroke_opacity" => set_float_param_from_config!(base, stroke_opacity, config, f32),
-                "access_token" => {
-                    base.access_token = config.get_parameter_as_string(key).transpose()?
-                }
-                _ => warn!(
-                    "unknown configuration parameter for MapBox: {}={:?}",
-                    key,
-                    config.get_parameter(key)
-                ),
-            }
-        }
-        Ok(base)
-    }
-
     fn request_url(&self, encoded_path: String, markers: &[Marker]) -> String {
         // hacky way to encode the path, we need to drop the leading '=' sign
         // from the call to form_urlencoded which is meant for key=value pairs
@@ -114,6 +86,36 @@ impl Default for MapBox {
             stroke_opacity: 0.75,
             access_token: None,
         }
+    }
+}
+
+impl FromServiceConfig for MapBox {
+    fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
+        let mut base = Self::default();
+        for key in config.parameters() {
+            match key.as_ref() {
+                "base_url" => set_string_param_from_config!(base, base_url, config),
+                "api_version" => set_string_param_from_config!(base, api_version, config),
+                "username" => set_string_param_from_config!(base, username, config),
+                "style" => set_string_param_from_config!(base, style, config),
+                "image_width" => set_int_param_from_config!(base, image_width, config, u32),
+                "image_height" => set_int_param_from_config!(base, image_height, config, u32),
+                "marker_color" => set_string_param_from_config!(base, marker_color, config),
+                "marker_style" => set_string_param_from_config!(base, marker_style, config),
+                "stroke_color" => set_string_param_from_config!(base, stroke_color, config),
+                "stroke_width" => set_int_param_from_config!(base, stroke_width, config, u32),
+                "stroke_opacity" => set_float_param_from_config!(base, stroke_opacity, config, f32),
+                "access_token" => {
+                    base.access_token = config.get_parameter_as_string(key).transpose()?
+                }
+                _ => warn!(
+                    "unknown configuration parameter for MapBox: {}={:?}",
+                    key,
+                    config.get_parameter(key)
+                ),
+            }
+        }
+        Ok(base)
     }
 }
 

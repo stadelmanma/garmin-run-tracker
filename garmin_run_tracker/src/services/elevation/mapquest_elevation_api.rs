@@ -1,7 +1,7 @@
 //! Import elevation data based on lat, long coordintes using the mapquest open elevation API
 use super::ElevationDataSource;
 use crate::{
-    config::ServiceConfig,
+    config::{FromServiceConfig, ServiceConfig},
     gps::{encode_coordinates, Location},
     set_int_param_from_config, set_string_param_from_config, Error,
 };
@@ -76,22 +76,6 @@ impl MapquestElevationApi {
         }
     }
 
-    pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
-        let mut base = Self::default();
-        for key in config.parameters() {
-            match key.as_ref() {
-                "api_key" => set_string_param_from_config!(base, api_key, config),
-                "batch_size" => set_int_param_from_config!(base, batch_size, config, usize),
-                _ => warn!(
-                    "unknown configuration parameter for MapquestElevationApi: {}={:?}",
-                    key,
-                    config.get_parameter(key)
-                ),
-            }
-        }
-        Ok(base)
-    }
-
     fn request_url(&self) -> Result<Url, Box<dyn std::error::Error>> {
         Url::parse_with_params(
             &format!("{}/elevation/{}/profile?", self.base_url, self.api_version),
@@ -113,6 +97,24 @@ impl Default for MapquestElevationApi {
             api_key: String::new(),
             batch_size: 512,
         }
+    }
+}
+
+impl FromServiceConfig for MapquestElevationApi {
+    fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
+        let mut base = Self::default();
+        for key in config.parameters() {
+            match key.as_ref() {
+                "api_key" => set_string_param_from_config!(base, api_key, config),
+                "batch_size" => set_int_param_from_config!(base, batch_size, config, usize),
+                _ => warn!(
+                    "unknown configuration parameter for MapquestElevationApi: {}={:?}",
+                    key,
+                    config.get_parameter(key)
+                ),
+            }
+        }
+        Ok(base)
     }
 }
 

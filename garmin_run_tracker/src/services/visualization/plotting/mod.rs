@@ -1,5 +1,5 @@
 //! Plot running data for a given FIT file using a plotting backend
-use crate::config::ServiceConfig;
+use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::Error;
 mod tui;
 pub use self::tui::TerminalPlotter;

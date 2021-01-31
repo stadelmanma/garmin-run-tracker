@@ -1,6 +1,6 @@
 //! Use the tui crate to draw plots directly on the terminal
 use super::{DataPlottingService, Plot};
-use crate::config::ServiceConfig;
+use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::Error;
 use std::cmp::max;
 use std::io;
@@ -18,8 +18,8 @@ use tui::{
 #[derive(Debug)]
 pub struct TerminalPlotter {}
 
-impl TerminalPlotter {
-    pub fn from_config(_config: &ServiceConfig) -> Result<Self, Error> {
+impl FromServiceConfig for TerminalPlotter {
+    fn from_config(_config: &ServiceConfig) -> Result<Self, Error> {
         Ok(Self::default())
     }
 }

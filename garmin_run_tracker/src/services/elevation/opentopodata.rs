@@ -1,8 +1,9 @@
 //! Import elevation data based on lat, long coordintes using the opentopodata API
 use super::ElevationDataSource;
 use crate::{
-    config::ServiceConfig, gps::Location, set_float_param_from_config, set_int_param_from_config,
-    set_string_param_from_config, Error,
+    config::{FromServiceConfig, ServiceConfig},
+    gps::Location,
+    set_float_param_from_config, set_int_param_from_config, set_string_param_from_config, Error,
 };
 use log::warn;
 use reqwest::blocking::Client;
@@ -51,7 +52,25 @@ impl OpenTopoData {
         }
     }
 
-    pub fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
+    fn request_url(&self) -> String {
+        format!("{}/{}/{}", self.base_url, self.api_version, self.dataset)
+    }
+}
+
+impl Default for OpenTopoData {
+    fn default() -> Self {
+        OpenTopoData {
+            base_url: "http://localhost:5000".to_string(),
+            api_version: "v1",
+            dataset: "ned10m".to_string(), // works well for USA/Canada
+            batch_size: 100,
+            requests_per_sec: -1.0,
+        }
+    }
+}
+
+impl FromServiceConfig for OpenTopoData {
+    fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
         let mut base = Self::default();
         for key in config.parameters() {
             match key.as_ref() {
@@ -70,22 +89,6 @@ impl OpenTopoData {
         }
 
         Ok(base)
-    }
-
-    fn request_url(&self) -> String {
-        format!("{}/{}/{}", self.base_url, self.api_version, self.dataset)
-    }
-}
-
-impl Default for OpenTopoData {
-    fn default() -> Self {
-        OpenTopoData {
-            base_url: "http://localhost:5000".to_string(),
-            api_version: "v1",
-            dataset: "ned10m".to_string(), // works well for USA/Canada
-            batch_size: 100,
-            requests_per_sec: -1.0,
-        }
     }
 }
 

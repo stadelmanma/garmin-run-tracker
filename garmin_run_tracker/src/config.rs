@@ -31,6 +31,11 @@ pub struct ServiceConfig {
     configuration: ServiceParameters,
 }
 
+/// Trait that allows a specific kind of service to be created from it's config
+pub trait FromServiceConfig: Default {
+    fn from_config(config: &ServiceConfig) -> Result<Self, Error>;
+}
+
 impl ServiceConfig {
     pub fn handler(&self) -> &str {
         &self.handler
@@ -48,10 +53,12 @@ impl ServiceConfig {
         if let Some(value) = self.configuration.get(key) {
             let value = value
                 .as_str()
-                .ok_or_else(|| Error::InvalidConfigurationValue(format!(
-                    "invalid value for {}.{}, expected a string: {:?}",
-                    &self.handler, key, value
-                )))
+                .ok_or_else(|| {
+                    Error::InvalidConfigurationValue(format!(
+                        "invalid value for {}.{}, expected a string: {:?}",
+                        &self.handler, key, value
+                    ))
+                })
                 .map(|v| v.to_string());
             Some(value)
         } else {
@@ -61,12 +68,12 @@ impl ServiceConfig {
 
     pub fn get_parameter_as_i64(&self, key: &str) -> Option<Result<i64, Error>> {
         if let Some(value) = self.configuration.get(key) {
-            let value = value
-                .as_i64()
-                .ok_or_else(|| Error::InvalidConfigurationValue(format!(
+            let value = value.as_i64().ok_or_else(|| {
+                Error::InvalidConfigurationValue(format!(
                     "invalid value for {}.{}, expected an integer: {:?}",
                     &self.handler, key, value
-                )));
+                ))
+            });
             Some(value)
         } else {
             None
@@ -75,12 +82,12 @@ impl ServiceConfig {
 
     pub fn get_parameter_as_f64(&self, key: &str) -> Option<Result<f64, Error>> {
         if let Some(value) = self.configuration.get(key) {
-            let value = value
-                .as_f64()
-                .ok_or_else(|| Error::InvalidConfigurationValue(format!(
+            let value = value.as_f64().ok_or_else(|| {
+                Error::InvalidConfigurationValue(format!(
                     "invalid value for {}.{}, expected a floating point value: {:?}",
                     &self.handler, key, value
-                )));
+                ))
+            });
             Some(value)
         } else {
             None

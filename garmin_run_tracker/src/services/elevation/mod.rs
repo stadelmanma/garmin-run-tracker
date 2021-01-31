@@ -1,5 +1,5 @@
 //! Access elevation data for a given GPS location using an external source
-use crate::config::ServiceConfig;
+use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::db::{find_file_by_uuid, QueryStringBuilder};
 use crate::gps::Location;
 use crate::Error;
