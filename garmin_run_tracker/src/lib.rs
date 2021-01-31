@@ -22,6 +22,10 @@ pub use error::Error;
 pub mod gps;
 pub mod services;
 
+// re-export service config derive macro
+#[macro_use]
+extern crate garmin_run_tracker_derive;
+
 static DIRECTORY_NAME: &str = "garmin-run-tracker";
 
 /// Contains basic information about a single FIT file, if the file is chained this struct

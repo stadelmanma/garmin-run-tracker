@@ -15,14 +15,8 @@ use tui::{
 };
 
 /// Defines parameters to interact with the MapBox API
-#[derive(Debug)]
+#[derive(Debug, FromServiceConfig)]
 pub struct TerminalPlotter {}
-
-impl FromServiceConfig for TerminalPlotter {
-    fn from_config(_config: &ServiceConfig) -> Result<Self, Error> {
-        Ok(Self::default())
-    }
-}
 
 impl Default for TerminalPlotter {
     fn default() -> Self {
