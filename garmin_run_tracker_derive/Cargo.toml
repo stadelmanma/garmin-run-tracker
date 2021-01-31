@@ -1,0 +1,16 @@
+[package]
+name = "garmin_run_tracker_derive"
+version = "0.1.0"
+authors = ["Matthew Stadelman <stadelmanma@gmail.com>"]
+edition = "2018"
+description = "Macro implementation for #[derive(FromServiceConfig)]."
+license = "MIT"
+repository = "https://github.com/stadelmanma/garmin-run-tracker"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = "1.0"

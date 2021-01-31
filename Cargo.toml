@@ -1,28 +1,5 @@
-[package]
-name = "garmin_run_tracker"
-version = "0.1.0"
-authors = ["Matthew Stadelman <stadelmanma@gmail.com>"]
-edition = "2018"
-description = "An application to process and store garmin FIT files from runs."
-license = "MIT"
-repository = "https://github.com/stadelmanma/garmin-run-tracker"
-readme = "README.md"
-documentation = "https://docs.rs/garmin-run-tracker"
-keywords = ["ant", "fit", "garmin"]
-
-[dependencies]
-chrono = "0.4.19"
-crossterm = "0.19.0"
-dirs = "2.0.2"
-fitparser = "0.2"
-form_urlencoded = "1.0.0"
-hex = "0.4.2"
-log = "0.4.8"
-reqwest = { version = "0.10", features = ["blocking", "json"] }
-rusqlite = { version = "0.24.2", features = ["bundled", "chrono", "array"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8.14"
-sha2 = "0.9.0"
-simplelog = "0.8.0"
-structopt = "0.3"
-tui = { version = "0.14", default-features = false, features = ['crossterm'] }
+[workspace]
+members = [
+    "garmin_run_tracker",
+    "garmin_run_tracker_derive",
+]
