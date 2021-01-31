@@ -9,7 +9,7 @@ extern crate proc_macro2;
 use proc_macro::TokenStream;
 use syn::DeriveInput;
 
-mod config
+mod config;
 
 #[proc_macro_derive(FromServiceConfig)]
 pub fn derive_from_service_config(input: TokenStream) -> TokenStream {
