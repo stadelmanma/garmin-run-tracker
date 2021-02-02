@@ -179,31 +179,3 @@ where
 fn default_level_filter() -> LevelFilter {
     LevelFilter::Info
 }
-
-/// Set a string parameter on the service instance from a ServiceConfig instance
-#[macro_export]
-macro_rules! set_string_param_from_config {
-    ($b:expr, $k:ident, $c:expr) => {
-        if let Some(val) = $c.get_parameter_as_string(stringify!($k)) {
-            $b.$k = val?
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! set_int_param_from_config {
-    ($b:expr, $k:ident, $c:expr, $o:ident) => {
-        if let Some(val) = $c.get_parameter_as_i64(stringify!($k)) {
-            $b.$k = val? as $o
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! set_float_param_from_config {
-    ($b:expr, $k:ident, $c:expr, $o:ident) => {
-        if let Some(val) = $c.get_parameter_as_f64(stringify!($k)) {
-            $b.$k = val? as $o
-        }
-    };
-}

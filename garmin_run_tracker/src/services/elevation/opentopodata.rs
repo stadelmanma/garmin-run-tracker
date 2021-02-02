@@ -3,9 +3,8 @@ use super::ElevationDataSource;
 use crate::{
     config::{FromServiceConfig, ServiceConfig},
     gps::Location,
-    set_float_param_from_config, set_int_param_from_config, set_string_param_from_config, Error,
+    Error,
 };
-use log::warn;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::{thread, time};
@@ -25,10 +24,11 @@ struct SuccessResponse {
     results: Vec<Elevation>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, FromServiceConfig)]
 /// Defines the connection parameters to reqest elevation data from an instance of opentopodata
 pub struct OpenTopoData {
     base_url: String,
+    #[service_config(skip)]
     api_version: &'static str,
     dataset: String,
     batch_size: usize,
@@ -66,29 +66,6 @@ impl Default for OpenTopoData {
             batch_size: 100,
             requests_per_sec: -1.0,
         }
-    }
-}
-
-impl FromServiceConfig for OpenTopoData {
-    fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
-        let mut base = Self::default();
-        for key in config.parameters() {
-            match key.as_ref() {
-                "base_url" => set_string_param_from_config!(base, base_url, config),
-                "dataset" => set_string_param_from_config!(base, dataset, config),
-                "batch_size" => set_int_param_from_config!(base, batch_size, config, usize),
-                "requests_per_sec" => {
-                    set_float_param_from_config!(base, requests_per_sec, config, f32)
-                }
-                _ => warn!(
-                    "unknown configuration parameter for OpenTopoData: {}={:?}",
-                    key,
-                    config.get_parameter(key)
-                ),
-            }
-        }
-
-        Ok(base)
     }
 }
 

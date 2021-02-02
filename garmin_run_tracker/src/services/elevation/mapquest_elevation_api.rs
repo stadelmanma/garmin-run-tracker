@@ -3,9 +3,8 @@ use super::ElevationDataSource;
 use crate::{
     config::{FromServiceConfig, ServiceConfig},
     gps::{encode_coordinates, Location},
-    set_int_param_from_config, set_string_param_from_config, Error,
+    Error,
 };
-use log::warn;
 use reqwest::{blocking::Client, StatusCode, Url};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -58,10 +57,12 @@ impl Default for Response {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, FromServiceConfig)]
 /// Defines the connection parameters to reqest elevation data from an instance of opentopodata
 pub struct MapquestElevationApi {
+    #[service_config(skip)]
     base_url: &'static str,
+    #[service_config(skip)]
     api_version: &'static str,
     api_key: String,
     batch_size: usize,
@@ -97,24 +98,6 @@ impl Default for MapquestElevationApi {
             api_key: String::new(),
             batch_size: 512,
         }
-    }
-}
-
-impl FromServiceConfig for MapquestElevationApi {
-    fn from_config(config: &ServiceConfig) -> Result<Self, Error> {
-        let mut base = Self::default();
-        for key in config.parameters() {
-            match key.as_ref() {
-                "api_key" => set_string_param_from_config!(base, api_key, config),
-                "batch_size" => set_int_param_from_config!(base, batch_size, config, usize),
-                _ => warn!(
-                    "unknown configuration parameter for MapquestElevationApi: {}={:?}",
-                    key,
-                    config.get_parameter(key)
-                ),
-            }
-        }
-        Ok(base)
     }
 }
 
