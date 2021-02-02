@@ -11,7 +11,7 @@ use syn::DeriveInput;
 
 mod config;
 
-#[proc_macro_derive(FromServiceConfig)]
+#[proc_macro_derive(FromServiceConfig, attributes(service_config))]
 pub fn derive_from_service_config(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
     config::expand_derive_from_service_config(&mut input)
