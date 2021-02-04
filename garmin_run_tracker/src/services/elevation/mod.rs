@@ -1,9 +1,9 @@
 //! Access elevation data for a given GPS location using an external source
 use crate::config::{FromServiceConfig, ServiceConfig};
-use crate::db::{find_file_by_uuid, QueryStringBuilder};
+use crate::db::QueryStringBuilder;
 use crate::gps::Location;
 use crate::Error;
-use log::info;
+use log::{info, warn};
 use rusqlite::{params, Transaction};
 
 mod opentopodata;
@@ -37,7 +37,7 @@ pub fn new_elevation_handler(
 pub fn update_elevation_data<T: ElevationDataSource + ?Sized>(
     tx: &Transaction,
     src: &T,
-    uuid: Option<&str>,
+    file_id: Option<u32>,
     overwrite: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // setup base queries
@@ -50,24 +50,17 @@ pub fn update_elevation_data<T: ElevationDataSource + ?Sized>(
     lap_query
         .and_where("start_position_lat is not null")
         .and_where("start_position_long is not null");
-    if !overwrite {
+    if file_id.is_none() {
+        // fix missing elevation data if no file_id filter
         rec_query.and_where("elevation is null");
         lap_query.and_where("start_elevation is null");
-    }
-
-    // filter by UUID if one was defined
-    let file_id = if let Some(uuid) = uuid {
-        match find_file_by_uuid(tx, &uuid) {
-            Ok(info) => {
-                rec_query.and_where("file_id = ?");
-                lap_query.and_where("file_id = ?");
-                Some(info.id)
-            }
-            Err(e) => return Err(Box::new(e)),
-        }
     } else {
-        None
-    };
+        rec_query.and_where("file_id = ?");
+        lap_query.and_where("file_id = ?");
+    }
+    if overwrite && file_id.is_none() {
+        warn!("Refusing to overwrite all elevation data, specify individual files instead");
+    }
 
     // fetch and save elevation data for record and lap messages
     let params: Vec<&dyn rusqlite::ToSql> = file_id
@@ -78,24 +71,14 @@ pub fn update_elevation_data<T: ElevationDataSource + ?Sized>(
         .query(&params)
         .map(|rows| add_record_elevation_data(src, &tx, rows))??; // we have nested results here
     stmt.finalize()?; // appease borrow checker
-    info!(
-        "Set location data for {}/{} record messages{}",
-        nset,
-        nrows,
-        uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
-    );
+    info!("Set location data for {}/{} record messages", nset, nrows,);
 
     let mut stmt = tx.prepare(&lap_query.to_string())?;
     let (nset, nrows) = stmt
         .query(&params)
         .map(|rows| add_lap_elevation_data(src, &tx, rows))??;
     stmt.finalize()?; // appease borrow checker
-    info!(
-        "Set location data for {}/{} lap messages{}",
-        nset,
-        nrows,
-        uuid.map_or(String::new(), |v| format!(" in file '{}'", v))
-    );
+    info!("Set location data for {}/{} lap messages", nset, nrows,);
 
     Ok(())
 }

@@ -23,9 +23,6 @@ pub struct ImportOpts {
     /// Do not search the import paths defined in the application config
     #[structopt(long)]
     skip_config_paths: bool,
-    /// Attempt to pull elevation data for rows in the database that are currently NULL
-    #[structopt(long)]
-    fix_missing_elevation: bool,
     /// Do not query elevation service when importing data
     #[structopt(long)]
     no_elevation: bool,
@@ -46,9 +43,6 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         match config.get_elevation_handler() {
             Ok(hdl) => Some(hdl),
             Err(e) => {
-                if opts.fix_missing_elevation {
-                    return Err(Box::new(e)); // hard error if we specifically wanted elevation import
-                }
                 error!("Could not initialize the elevation service {}", e);
                 None
             }
@@ -65,8 +59,8 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
     };
     import_paths.extend(opts.paths);
 
-    // throw an error for no import paths unless we are fixing elevation
-    if import_paths.is_empty() && !opts.fix_missing_elevation {
+    // throw an error for no import paths
+    if import_paths.is_empty() {
         return Err(Box::new(Error::Other(
             "No import paths provided".to_string(),
         )));
@@ -80,7 +74,7 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         DuplicateFileBehavior::Warn
     };
     let mut conn = open_db_connection()?;
-    let imported_uuids = import_files(
+    let imported_files = import_files(
         &mut conn,
         &import_paths,
         opts.recursive,
@@ -92,30 +86,32 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
     if let Some(hdl) = elevation_hdl {
         // we overwrite here on the assumption that API provides more accurate values than the
         // device, if the device provided any at all
-        for uuid in imported_uuids {
+        for file_info in imported_files {
+            if file_info.id().is_none() {
+                error!(
+                    "Imported file with UUID={} has no file_id cannot update elevation data.",
+                    file_info.uuid()
+                );
+                continue;
+            }
             let tx = conn.transaction()?;
-            match update_elevation_data(&tx, hdl.as_ref(), Some(&uuid), true) {
+            match update_elevation_data(&tx, hdl.as_ref(), file_info.id(), true) {
                 Ok(_) => {
                     tx.commit()?;
-                    info!("Successfully imported elevation for FIT file '{}'", uuid);
+                    info!(
+                        "Successfully imported elevation for FIT file '{}'",
+                        file_info.uuid()
+                    );
                 }
                 Err(e) => {
                     tx.rollback()?;
                     error!(
                         "Could not import elevation data from the API for FIT file '{}'",
-                        uuid
+                        file_info.uuid()
                     );
                     error!("{}", e);
                 }
             }
-        }
-        // update missing elevation data in database, we'll hard error here if this fails since
-        // the task was requested directly and we're at the end of program execution anyways.
-        // overwrite = false to only hit NULL values.
-        if opts.fix_missing_elevation {
-            let tx = conn.transaction()?;
-            update_elevation_data(&tx, hdl.as_ref(), None, false)?;
-            tx.commit()?;
         }
     }
 
@@ -129,8 +125,8 @@ fn import_files(
     recursive: bool,
     dupe_err: DuplicateFileBehavior,
     persist_file: bool,
-) -> Result<Vec<String>, Error> {
-    let mut uuids = Vec::new();
+) -> Result<Vec<FileInfo>, Error> {
+    let mut file_infos = Vec::new();
     for path in paths {
         if !path.exists() {
             warn!("Path does not exist: {:?}", path);
@@ -158,10 +154,10 @@ fn import_files(
                 DuplicateFileBehavior::Suppress,
                 persist_file,
             )
-            .map(|v| uuids.extend(v))?;
+            .map(|v| file_infos.extend(v))?;
         } else {
             match import_file(conn, path, persist_file) {
-                Ok(file_info) => uuids.push(file_info.uuid().to_string()),
+                Ok(file_info) => file_infos.push(file_info),
                 Err(e) => {
                     // handle dupe errors
                     match &e {
@@ -186,7 +182,7 @@ fn import_files(
         }
     }
 
-    Ok(uuids)
+    Ok(file_infos)
 }
 
 /// Import a FIT files into the database, optionally fetching elevation data from an external service
