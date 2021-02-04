@@ -14,6 +14,8 @@ mod route_image;
 use route_image::{route_image_command, RouteImageOpts};
 mod show;
 use show::{show_command, ShowOpts};
+mod update_elevation;
+use update_elevation::{update_elevation_command, UpdateElevationOpts};
 
 /// Parse FIT formatted files and import their data into the local database
 #[derive(Debug, StructOpt)]
@@ -68,6 +70,9 @@ pub enum Command {
     /// Show file statistics and plot running data
     #[structopt(name = "show")]
     Show(ShowOpts),
+    /// Update elevation data in the database for one or more files
+    #[structopt(name = "update-elevation")]
+    UpdateElevation(UpdateElevationOpts),
 }
 
 impl Command {
@@ -79,6 +84,7 @@ impl Command {
             Command::Listfiles(opts) => list_files_command(opts),
             Command::RouteImage(opts) => route_image_command(config, opts),
             Command::Show(opts) => show_command(config, opts),
+            Command::UpdateElevation(opts) => update_elevation_command(config, opts),
         }
     }
 }
