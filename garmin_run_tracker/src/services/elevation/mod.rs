@@ -50,11 +50,11 @@ pub fn update_elevation_data<T: ElevationDataSource + ?Sized>(
     lap_query
         .and_where("start_position_lat is not null")
         .and_where("start_position_long is not null");
-    if file_id.is_none() {
-        // fix missing elevation data if no file_id filter
+    if file_id.is_none() || !overwrite {
         rec_query.and_where("elevation is null");
         lap_query.and_where("start_elevation is null");
-    } else {
+    }
+    if file_id.is_some() {
         rec_query.and_where("file_id = ?");
         lap_query.and_where("file_id = ?");
     }
