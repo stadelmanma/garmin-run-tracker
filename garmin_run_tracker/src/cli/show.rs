@@ -81,6 +81,7 @@ pub fn show_command(config: Config, opts: ShowOpts) -> Result<(), Box<dyn std::e
         .zip(elevation.into_iter())
         .map(|(d, s)| (*d, s))
         .collect();
+    elev_plot.show_y_zero = false;
     elev_plot.add_series(DataSeries::new("Elevation", &series2_data));
 
     let mut hr_plot = Plot::new(

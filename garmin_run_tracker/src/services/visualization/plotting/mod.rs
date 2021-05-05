@@ -69,6 +69,10 @@ pub struct Plot<'a> {
     title: String,
     x_axis: String,
     y_axis: String,
+    /// Ensure 0 is shown on plot x axis, default true
+    pub show_x_zero: bool,
+    /// Ensure 0 is shown on plot y axis, default true
+    pub show_y_zero: bool,
     series: Vec<DataSeries<'a>>,
 }
 
@@ -76,6 +80,8 @@ impl<'a> Plot<'a> {
     pub fn new(title: String, x_axis: String, y_axis: String) -> Self {
         Plot {
             series: Vec::new(),
+            show_x_zero: true,
+            show_y_zero: true,
             x_axis,
             y_axis,
             title,

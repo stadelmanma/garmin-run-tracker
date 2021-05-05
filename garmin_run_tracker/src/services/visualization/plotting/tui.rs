@@ -53,9 +53,9 @@ impl DataPlottingService for TerminalPlotter {
                     })
                     .collect();
                 // fetch min and maximum values for axes across all data series
-                let mut x_min = 0f64;
+                let mut x_min = if plot.show_x_zero { 0f64 } else { 1e99f64 };
                 let mut x_max = 1f64;
-                let mut y_min = 0f64;
+                let mut y_min = if plot.show_y_zero { 0f64 } else { 1e99f64 };
                 let mut y_max = 1f64;
                 for series in plot.series() {
                     for (x, y) in series {
@@ -73,7 +73,7 @@ impl DataPlottingService for TerminalPlotter {
                         }
                     }
                 }
-                y_max *= 1.1;
+                y_max += (y_max - y_min) * 0.1; // only scale up axis by 10% of total range
                 let chart = Chart::new(datasets)
                     .block(Block::default().title(plot.title()))
                     .x_axis(
@@ -83,7 +83,12 @@ impl DataPlottingService for TerminalPlotter {
                             .bounds([x_min, x_max])
                             .labels(
                                 (0..=5)
-                                    .map(|n| Span::from(format!("{:.3}", x_max * (n as f64 / 5.0))))
+                                    .map(|n| {
+                                        Span::from(format!(
+                                            "{:.3}",
+                                            x_min + (x_max - x_min) * (n as f64 / 5.0)
+                                        ))
+                                    })
                                     .collect(),
                             ),
                     )
@@ -94,7 +99,12 @@ impl DataPlottingService for TerminalPlotter {
                             .bounds([y_min, y_max])
                             .labels(
                                 (0..=y_nticks)
-                                    .map(|n| Span::from(format!("{:.3}", y_max * (n as f64 / 5.0))))
+                                    .map(|n| {
+                                        Span::from(format!(
+                                            "{:.3}",
+                                            y_min + (y_max - y_min) * (n as f64 / y_nticks as f64)
+                                        ))
+                                    })
                                     .collect(),
                             ),
                     );
