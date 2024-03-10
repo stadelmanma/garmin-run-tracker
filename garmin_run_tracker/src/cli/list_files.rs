@@ -4,7 +4,7 @@ use crate::db::{new_file_info_query, open_db_connection};
 use crate::FileInfo;
 use chrono::{DateTime, Local, NaiveDate};
 use rusqlite::types::Value;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, params_from_iter, Connection, Result};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
@@ -53,7 +53,7 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         query.limit(value);
     }
     let mut stmt = conn.prepare(&query.to_string())?;
-    let rows = stmt.query_map(&params, |r| FileInfo::try_from(r))?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |r| FileInfo::try_from(r))?;
     let mut file_ids = Vec::new();
     let mut files = Vec::new();
     for r in rows {
@@ -73,8 +73,6 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         long_output(&files, agg_data, lap_data);
     };
 
-
-
     Ok(())
 }
 
@@ -91,7 +89,7 @@ fn short_output(files: &[FileInfo], agg_data: HashMap<u32, HashMap<&'static str,
                     (data["avg_pace"] - data["avg_pace"].floor()) * 60.0,
                     file.uuid
                 );
-            },
+            }
             None => {
                 println!(
                     "{} {}-{} ({})",
@@ -105,7 +103,11 @@ fn short_output(files: &[FileInfo], agg_data: HashMap<u32, HashMap<&'static str,
     }
 }
 
-fn long_output(files: &[FileInfo], agg_data: HashMap<u32, HashMap<&'static str, f64>>, lap_data: HashMap<u32, Vec<HashMap<&'static str, f64>>>) {
+fn long_output(
+    files: &[FileInfo],
+    agg_data: HashMap<u32, HashMap<&'static str, f64>>,
+    lap_data: HashMap<u32, Vec<HashMap<&'static str, f64>>>,
+) {
     println!("Date, Device, UUID");
     for file in files {
         println!(
