@@ -131,13 +131,15 @@ pub fn import_fit_data<T: Read>(fp: &mut T, tx: &Transaction) -> Result<FileInfo
                     data.get("time_created"),
                     uuid,
                 ])?;
-                let timestamp = data.get("time_created").map_or(Local.timestamp(0, 0), |v| {
-                    if let Value::Timestamp(v) = v.deref() {
-                        *v
-                    } else {
-                        Local.timestamp(0, 0)
-                    }
-                });
+                let timestamp = data
+                    .get("time_created")
+                    .map_or_else(default_timestamp, |v| {
+                        if let Value::Timestamp(v) = v.deref() {
+                            *v
+                        } else {
+                            default_timestamp()
+                        }
+                    });
                 let serial_number = data
                     .get("serial_number")
                     .map_or(Ok(-1i64), |v| v.deref().clone().try_into())?;
@@ -246,4 +248,11 @@ fn create_fit_data_map<'a>(mesg: &'a FitDataRecord) -> HashMap<&'a str, SqlValue
         .iter()
         .map(|f| (f.name(), SqlValue::new(f.value())))
         .collect()
+}
+
+fn default_timestamp() -> DateTime<Local> {
+    Local
+        .timestamp_opt(0, 0)
+        .single()
+        .expect("Failed to create instance of UNIX timestamp")
 }
