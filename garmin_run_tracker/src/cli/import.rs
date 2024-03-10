@@ -6,6 +6,7 @@ use log::{debug, error, info, trace, warn};
 use rusqlite::Connection;
 use std::fs::{copy as copy_file, create_dir_all, read_dir, File};
 use std::path::PathBuf;
+use std::str::FromStr;
 use structopt::StructOpt;
 
 /// Import one or more FIT files directly or within the provided directories
@@ -26,6 +27,9 @@ pub struct ImportOpts {
     /// Do not query elevation service when importing data
     #[structopt(long)]
     no_elevation: bool,
+    /// How to respond to import eerrors
+    #[structopt(long)]
+    import_errors: ImportErrorBehavior,
 }
 
 /// How we should handle dupes during imports
@@ -34,6 +38,29 @@ enum DuplicateFileBehavior {
     Error,
     Warn,
     Suppress,
+}
+
+/// How we should handle dupes during imports
+#[derive(Clone, Copy, Debug)]
+enum ImportErrorBehavior {
+    Error,
+    Warn,
+    Suppress,
+}
+
+impl FromStr for ImportErrorBehavior {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        return match s.to_ascii_lowercase().as_str() {
+            "error" => Ok(ImportErrorBehavior::Error),
+            "warn" => Ok(ImportErrorBehavior::Warn),
+            "suppress" => Ok(ImportErrorBehavior::Suppress),
+            _ => Err(Error::InvalidConfigurationValue(format!(
+                "Unknown value {s}: expected: error, warn, suppress"
+            ))),
+        };
+    }
 }
 
 /// Implementation of the `import` subcommand
@@ -79,6 +106,7 @@ pub fn import_command(config: Config, opts: ImportOpts) -> Result<(), Box<dyn st
         &import_paths,
         opts.recursive,
         dupe_err,
+        opts.import_errors,
         !opts.no_copy,
     )?;
 
@@ -124,6 +152,7 @@ fn import_files(
     paths: &[PathBuf],
     recursive: bool,
     dupe_err: DuplicateFileBehavior,
+    import_err: ImportErrorBehavior,
     persist_file: bool,
 ) -> Result<Vec<FileInfo>, Error> {
     let mut file_infos = Vec::new();
@@ -152,6 +181,7 @@ fn import_files(
                 &new_paths,
                 recursive,
                 DuplicateFileBehavior::Suppress,
+                import_err,
                 persist_file,
             )
             .map(|v| file_infos.extend(v))?;
@@ -175,7 +205,20 @@ fn import_files(
                                 continue;
                             }
                         },
-                        _ => return Err(e), // propagate all other errors
+                        _ => match import_err {
+                            ImportErrorBehavior::Error => {
+                                error!("{}", e);
+                                return Err(e);
+                            }
+                            ImportErrorBehavior::Warn => {
+                                warn!("{}", e);
+                                continue;
+                            }
+                            ImportErrorBehavior::Suppress => {
+                                trace!("{}", e);
+                                continue;
+                            }
+                        },
                     }
                 }
             }

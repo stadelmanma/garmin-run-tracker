@@ -143,7 +143,7 @@ fn strip_leading_bytes(data: Vec<u8>) -> Result<Vec<u8>, Error> {
 /// Verify the checksum and the timestamps in the EPO data
 fn validate_epo_data(data: &[u8]) -> Result<(), Error> {
     // timestamps in EPO data use this as the reference point
-    let ref_date = Utc.ymd(1980, 1, 6).and_hms(0, 0, 0);
+    let ref_date = Utc.with_ymd_and_hms(1980, 1, 6, 0, 0, 0).unwrap();
     let now = Utc::now();
     let mut start_date = now;
     let mut end_date = ref_date;

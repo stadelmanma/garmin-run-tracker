@@ -9,6 +9,7 @@ use reqwest::{blocking::Client, StatusCode, Url};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Elevation {
     distance: f32,
@@ -28,6 +29,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Info {
     copyright: HashMap<String, String>,

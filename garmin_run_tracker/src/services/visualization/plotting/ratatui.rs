@@ -1,10 +1,10 @@
-//! Use the tui crate to draw plots directly on the terminal
+//! Use the ratatui crate to draw plots directly on the terminal
 use super::{DataPlottingService, Plot};
 use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::Error;
 use std::cmp::max;
 use std::io;
-use tui::{
+use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
@@ -39,7 +39,9 @@ impl DataPlottingService for TerminalPlotter {
                 .constraints(constraints)
                 .split(f.size());
             let y_nticks = max(2, 7 - plots.len()); // reduce ticks if less vertical space
-            for (chunk, plot) in chunks.into_iter().zip(plots) {
+
+
+            for (&chunk, &plot) in chunks.into_iter().zip(plots) {
                 let datasets = plot
                     .series()
                     .iter()

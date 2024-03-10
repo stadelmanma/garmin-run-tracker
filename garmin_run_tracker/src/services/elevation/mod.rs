@@ -4,7 +4,7 @@ use crate::db::QueryStringBuilder;
 use crate::gps::Location;
 use crate::Error;
 use log::{info, warn};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, params_from_iter, Transaction};
 
 mod opentopodata;
 pub use opentopodata::OpenTopoData;
@@ -68,14 +68,14 @@ pub fn update_elevation_data<T: ElevationDataSource + ?Sized>(
         .map_or(Vec::new(), |v| vec![v as &dyn rusqlite::ToSql]);
     let mut stmt = tx.prepare(&rec_query.to_string())?;
     let (nset, nrows) = stmt
-        .query(&params)
+        .query(params_from_iter(params.iter()))
         .map(|rows| add_record_elevation_data(src, &tx, rows))??; // we have nested results here
     stmt.finalize()?; // appease borrow checker
     info!("Set location data for {}/{} record messages", nset, nrows,);
 
     let mut stmt = tx.prepare(&lap_query.to_string())?;
     let (nset, nrows) = stmt
-        .query(&params)
+        .query(params_from_iter(params.iter()))
         .map(|rows| add_lap_elevation_data(src, &tx, rows))??;
     stmt.finalize()?; // appease borrow checker
     info!("Set location data for {}/{} lap messages", nset, nrows,);

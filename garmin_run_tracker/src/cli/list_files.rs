@@ -4,7 +4,7 @@ use crate::db::{new_file_info_query, open_db_connection};
 use crate::FileInfo;
 use chrono::{DateTime, Local, NaiveDate};
 use rusqlite::types::Value;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, params_from_iter, Connection, Result};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
@@ -53,7 +53,7 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         query.limit(value);
     }
     let mut stmt = conn.prepare(&query.to_string())?;
-    let rows = stmt.query_map(&params, |r| FileInfo::try_from(r))?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |r| FileInfo::try_from(r))?;
     let mut file_ids = Vec::new();
     let mut files = Vec::new();
     for r in rows {
@@ -64,19 +64,54 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
     let values: Rc<Vec<Value>> = Rc::new(file_ids); // usage of select from rarray needs an Rc
 
     // grab aggregrate and lap stats
-    let (agg_data, lap_data) = if opts.short {
-        (HashMap::new(), HashMap::new())
+    if opts.short {
+        let agg_data = collect_aggregate_stats(&conn, Rc::clone(&values))?;
+        short_output(&files, agg_data);
     } else {
-        (
-            collect_aggregate_stats(&conn, Rc::clone(&values))?,
-            collect_lap_stats(&conn, Rc::clone(&values))?,
-        )
+        let agg_data = collect_aggregate_stats(&conn, Rc::clone(&values))?;
+        let lap_data = collect_lap_stats(&conn, Rc::clone(&values))?;
+        long_output(&files, agg_data, lap_data);
     };
 
+    Ok(())
+}
+
+fn short_output(files: &[FileInfo], agg_data: HashMap<u32, HashMap<&'static str, f64>>) {
+    println!("Date\tDistance[mi]\tPace[mi/min]\tUUID");
+    for file in files {
+        match file.id.map(|id| agg_data.get(&id)).flatten() {
+            Some(data) => {
+                println!(
+                    "{:10}\t{:0.2}\t{:2}:{:02.0}\t({})",
+                    file.timestamp.format("%Y-%m-%d"),
+                    data["total_distance"],
+                    data["avg_pace"] as i32,
+                    (data["avg_pace"] - data["avg_pace"].floor()) * 60.0,
+                    file.uuid
+                );
+            }
+            None => {
+                println!(
+                    "{} {}-{} ({})",
+                    file.timestamp.format("%Y-%m-%d %H:%M"),
+                    file.manufacturer,
+                    file.product,
+                    file.uuid
+                );
+            }
+        }
+    }
+}
+
+fn long_output(
+    files: &[FileInfo],
+    agg_data: HashMap<u32, HashMap<&'static str, f64>>,
+    lap_data: HashMap<u32, Vec<HashMap<&'static str, f64>>>,
+) {
     println!("Date, Device, UUID");
     for file in files {
         println!(
-            "{} {}-{} ({})",
+            "{} ({}-{} {})",
             file.timestamp.format("%Y-%m-%d %H:%M"),
             file.manufacturer,
             file.product,
@@ -112,8 +147,6 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
             }
         }
     }
-
-    Ok(())
 }
 
 /// Query the record_messages table to get various values averaged across the entire run
