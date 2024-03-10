@@ -1,8 +1,8 @@
 //! Plot running data for a given FIT file using a plotting backend
 use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::Error;
-mod tui;
-pub use self::tui::TerminalPlotter;
+mod ratatui;
+pub use self::ratatui::TerminalPlotter;
 
 /// A vector of (x, y) coordinate pairs and a name
 #[derive(Debug)]
@@ -119,7 +119,7 @@ pub fn new_plotting_visualization_handler(
     config: &ServiceConfig,
 ) -> Result<Box<dyn DataPlottingService>, Error> {
     match config.handler() {
-        "tui" => Ok(Box::new(TerminalPlotter::from_config(config)?)),
+        "ratatui" => Ok(Box::new(TerminalPlotter::from_config(config)?)),
         _ => Err(Error::UnknownServiceHandler(format!(
             "no plotting visualization handler exists for: {}",
             config.handler()

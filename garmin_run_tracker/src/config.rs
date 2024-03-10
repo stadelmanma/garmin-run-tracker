@@ -152,7 +152,7 @@ impl Config {
             None => {
                 // use terminal as default plotter since we always have that
                 new_plotting_visualization_handler(&ServiceConfig {
-                    handler: "tui".to_string(),
+                    handler: "ratatui".to_string(),
                     configuration: HashMap::new(),
                 })
             }
