@@ -1,6 +1,6 @@
 use garmin_run_tracker::cli::Cli;
 use garmin_run_tracker::{create_database, devices_dir, load_config};
-use simplelog::{Config as LoggerConfig, TermLogger, TerminalMode};
+use simplelog::{ColorChoice, Config as LoggerConfig, TermLogger, TerminalMode};
 use std::fs::create_dir_all;
 use structopt::StructOpt;
 
@@ -19,7 +19,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let opt = Cli::from_args();
     let log_level = opt.verbosity(config.log_level());
-    TermLogger::init(log_level, LoggerConfig::default(), TerminalMode::Mixed)?;
+    TermLogger::init(
+        log_level,
+        LoggerConfig::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )?;
 
     // execute any subcommands
     opt.execute_subcommand(config)
