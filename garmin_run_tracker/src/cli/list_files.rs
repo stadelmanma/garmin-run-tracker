@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 use structopt::StructOpt;
 
-/// List all files in the local database
+/// List all files in the local database from old -> new
 #[derive(Debug, StructOpt)]
 pub struct ListFilesOpts {
     /// Hide per file statistics and only show date, device and UUID of entries
@@ -25,9 +25,9 @@ pub struct ListFilesOpts {
     /// Reverse file ordering to be old -> new
     #[structopt(short, long)]
     reverse: bool,
-    /// Limit results returned to "N" entries ()
-    #[structopt(short, long)]
-    number: Option<usize>,
+    /// Limit results returned to the last "N" entries, use 0 to list all results
+    #[structopt(short, long, default_value = "5")]
+    number: usize,
 }
 
 pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error::Error>> {
@@ -44,13 +44,15 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         query.and_where("time_created < ?");
         params.push(end_date as &dyn rusqlite::ToSql);
     }
+    // query in this order so we can use the limit caluse to
+    // efficently "tail" our results
     if opts.reverse {
         query.order_by("time_created ASC");
     } else {
         query.order_by("time_created DESC");
     }
-    if let Some(value) = opts.number {
-        query.limit(value);
+    if opts.number > 0 {
+        query.limit(opts.number);
     }
     let mut stmt = conn.prepare(&query.to_string())?;
     let rows = stmt.query_map(params_from_iter(params.iter()), |r| FileInfo::try_from(r))?;
@@ -61,6 +63,12 @@ pub fn list_files_command(opts: ListFilesOpts) -> Result<(), Box<dyn std::error:
         file_ids.push(Value::from(r.id));
         files.push(r);
     }
+    if opts.reverse {
+        files.sort_by(|a, b| b.timestamp().cmp(a.timestamp()));
+    } else {
+        files.sort_by(|a, b| a.timestamp().cmp(b.timestamp()));
+    }
+
     let values: Rc<Vec<Value>> = Rc::new(file_ids); // usage of select from rarray needs an Rc
 
     // grab aggregrate and lap stats
