@@ -28,7 +28,7 @@ pub struct ImportOpts {
     #[structopt(long)]
     no_elevation: bool,
     /// How to respond to import eerrors
-    #[structopt(long)]
+    #[structopt(long, default_value = "warn")]
     import_errors: ImportErrorBehavior,
 }
 
@@ -186,6 +186,11 @@ fn import_files(
             )
             .map(|v| file_infos.extend(v))?;
         } else {
+            let fname = path
+                .file_name()
+                .map(|v| v.to_str())
+                .flatten()
+                .unwrap_or("UNKOWN");
             match import_file(conn, path, persist_file) {
                 Ok(file_info) => file_infos.push(file_info),
                 Err(e) => {
@@ -207,15 +212,15 @@ fn import_files(
                         },
                         _ => match import_err {
                             ImportErrorBehavior::Error => {
-                                error!("{}", e);
+                                error!("File {:?}: {}", fname, e);
                                 return Err(e);
                             }
                             ImportErrorBehavior::Warn => {
-                                warn!("{}", e);
+                                warn!("File {:?}: {}", fname, e);
                                 continue;
                             }
                             ImportErrorBehavior::Suppress => {
-                                trace!("{}", e);
+                                trace!("File {:?}: {}", fname, e);
                                 continue;
                             }
                         },
