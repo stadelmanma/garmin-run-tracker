@@ -1,4 +1,6 @@
 //! Plot running data for a given FIT file using a plotting backend
+use ::ratatui::text::Span;
+
 use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::Error;
 mod ratatui;
@@ -74,6 +76,9 @@ pub struct Plot<'a> {
     /// Ensure 0 is shown on plot y axis, default true
     pub show_y_zero: bool,
     series: Vec<DataSeries<'a>>,
+    _xmax: f64,
+    _ymin: f64,
+    _ymax: f64,
 }
 
 impl<'a> Plot<'a> {
@@ -82,6 +87,9 @@ impl<'a> Plot<'a> {
             series: Vec::new(),
             show_x_zero: true,
             show_y_zero: true,
+            _xmax: 0.0,
+            _ymin: 1e99f64,
+            _ymax: 0.0,
             x_axis,
             y_axis,
             title,
@@ -105,7 +113,54 @@ impl<'a> Plot<'a> {
     }
 
     pub fn add_series(&mut self, data: DataSeries<'a>) {
+        for (x, y) in &data {
+            if x > self._xmax {
+                self._xmax = x;
+            }
+            if y < self._ymin {
+                self._ymin = y;
+            }
+            if y > self._ymax {
+                self._ymax = y;
+            }
+        }
         self.series.push(data);
+    }
+
+    pub fn xmax(&self) -> f64 {
+        self._xmax
+    }
+
+    pub fn ymin(&self) -> f64 {
+        if self.show_y_zero {
+            0.0
+        } else {
+            self._ymin
+        }
+    }
+
+    pub fn ymax(&self) -> f64 {
+        // bump by 10% of range
+        self._ymax + 0.10 * (self._ymax - self._ymin)
+    }
+
+    pub fn xticks(&self) -> Vec<Span> {
+        let mut ticks: Vec<Span> = (0..=(self._xmax.floor() as i32))
+            .map(|v| Span::from(v.to_string()))
+            .collect();
+        ticks.push(Span::from(format!("{:0.1}", self._xmax)));
+        return ticks;
+    }
+
+    pub fn yticks(&self, nticks: usize) -> Vec<Span> {
+        (0..=nticks)
+            .map(|n| {
+                Span::from(format!(
+                    "{:.3}",
+                    self.ymin() + (self.ymax() - self.ymin()) * (n as f64 / nticks as f64)
+                ))
+            })
+            .collect()
     }
 }
 

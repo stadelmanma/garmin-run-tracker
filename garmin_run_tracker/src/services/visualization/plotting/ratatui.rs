@@ -2,8 +2,6 @@
 use super::{DataPlottingService, Plot};
 use crate::config::{FromServiceConfig, ServiceConfig};
 use crate::Error;
-use std::cmp::max;
-use std::io;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -13,6 +11,8 @@ use ratatui::{
     widgets::{Axis, Block, Chart, Dataset, GraphType},
     Terminal,
 };
+use std::cmp::max;
+use std::io;
 
 /// Defines parameters to interact with the MapBox API
 #[derive(Debug, FromServiceConfig)]
@@ -40,7 +40,6 @@ impl DataPlottingService for TerminalPlotter {
                 .split(f.size());
             let y_nticks = max(2, 7 - plots.len()); // reduce ticks if less vertical space
 
-
             for (&chunk, &plot) in chunks.into_iter().zip(plots) {
                 let datasets = plot
                     .series()
@@ -54,61 +53,21 @@ impl DataPlottingService for TerminalPlotter {
                             .data(s.data())
                     })
                     .collect();
-                // fetch min and maximum values for axes across all data series
-                let mut x_min = if plot.show_x_zero { 0f64 } else { 1e99f64 };
-                let mut x_max = 1f64;
-                let mut y_min = if plot.show_y_zero { 0f64 } else { 1e99f64 };
-                let mut y_max = 1f64;
-                for series in plot.series() {
-                    for (x, y) in series {
-                        if x < x_min {
-                            x_min = x;
-                        }
-                        if x > x_max {
-                            x_max = x;
-                        }
-                        if y < y_min {
-                            y_min = y;
-                        }
-                        if y > y_max {
-                            y_max = y;
-                        }
-                    }
-                }
-                y_max += (y_max - y_min) * 0.1; // only scale up axis by 10% of total range
                 let chart = Chart::new(datasets)
                     .block(Block::default().title(plot.title()))
                     .x_axis(
                         Axis::default()
                             .title(Span::styled(plot.x(), Style::default().fg(Color::Red)))
                             .style(Style::default().fg(Color::White))
-                            .bounds([x_min, x_max])
-                            .labels(
-                                (0..=5)
-                                    .map(|n| {
-                                        Span::from(format!(
-                                            "{:.3}",
-                                            x_min + (x_max - x_min) * (n as f64 / 5.0)
-                                        ))
-                                    })
-                                    .collect(),
-                            ),
+                            .bounds([0.0, plot.xmax()])
+                            .labels(plot.xticks()),
                     )
                     .y_axis(
                         Axis::default()
                             .title(Span::styled(plot.y(), Style::default().fg(Color::Red)))
                             .style(Style::default().fg(Color::White))
-                            .bounds([y_min, y_max])
-                            .labels(
-                                (0..=y_nticks)
-                                    .map(|n| {
-                                        Span::from(format!(
-                                            "{:.3}",
-                                            y_min + (y_max - y_min) * (n as f64 / y_nticks as f64)
-                                        ))
-                                    })
-                                    .collect(),
-                            ),
+                            .bounds([plot.ymin(), plot.ymax()])
+                            .labels(plot.yticks(y_nticks)),
                     );
                 f.render_widget(chart, chunk);
             }
