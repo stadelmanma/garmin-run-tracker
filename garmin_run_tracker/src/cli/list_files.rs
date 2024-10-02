@@ -90,11 +90,10 @@ fn short_output(files: &[FileInfo], agg_data: HashMap<u32, HashMap<&'static str,
         match file.id.map(|id| agg_data.get(&id)).flatten() {
             Some(data) => {
                 println!(
-                    "{:10}\t{:0.2}\t{:2}:{:02.0}\t({})",
+                    "{:10}\t{:0.2}\t{}\t({})",
                     file.timestamp.format("%Y-%m-%d"),
                     data["total_distance"],
-                    data["avg_pace"] as i32,
-                    (data["avg_pace"] - data["avg_pace"].floor()) * 60.0,
+                    format_time(data["avg_pace"]),
                     file.uuid
                 );
             }
@@ -132,24 +131,21 @@ fn long_output(
         };
         if let Some(data) = agg_data.get(&file_id) {
             println!(
-                "\t Distance: {:0.2} miles, Time: {:3}:{:02.0}, \
-                     Pace: {:2}:{:02.0}, Heart Rate: {:0.0}bpm",
+                "\t Distance: {:0.2} miles, Time: {}, \
+                     Pace: {}, Heart Rate: {:0.0}bpm",
                 data["total_distance"],
-                data["total_time"] as i32,
-                (data["total_time"] - data["total_time"].floor()) * 60.0,
-                data["avg_pace"] as i32,
-                (data["avg_pace"] - data["avg_pace"].floor()) * 60.0,
+                format_time(data["total_time"]),
+                format_time(data["avg_pace"]),
                 data["avg_heart_rate"]
             );
         }
         if let Some(data) = lap_data.get(&file_id) {
             for (i, lap) in data.iter().enumerate() {
                 println!(
-                    "\t * Lap {:02} - {:0.2} miles, Time: {:3}:{:02.0}, Heart Rate: {:0.0}bpm",
+                    "\t * Lap {:02} - {:0.2} miles, Time: {}, Heart Rate: {:0.0}bpm",
                     i + 1,
                     lap["total_distance"],
-                    lap["total_time"] as i32,
-                    (lap["total_time"] - lap["total_time"].floor()) * 60.0,
+                    format_time(lap["total_time"]),
                     lap["avg_heart_rate"]
                 );
             }
@@ -245,4 +241,16 @@ fn collect_lap_stats(
     lap_data.insert(curr_id, file_stats);
 
     Ok(lap_data)
+}
+
+fn format_time(value: f64) -> String {
+    let hours = (value / 60.0) as i32;
+    let minutes = (if hours > 0 { value % 60.0 } else { value }) as i32;
+    let seconds = (value - value.floor()) * 60.0;
+    //
+    if hours > 0 {
+        format!("{}:{:02}:{:02.0}", hours, minutes, seconds)
+    } else {
+        format!("{:2}:{:02.0}", minutes, seconds)
+    }
 }
