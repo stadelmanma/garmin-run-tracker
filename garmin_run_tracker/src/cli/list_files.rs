@@ -164,7 +164,7 @@ fn collect_aggregate_stats(
 ) -> Result<HashMap<u32, HashMap<&'static str, f64>>> {
     let mut agg_data: HashMap<u32, HashMap<&'static str, f64>> = HashMap::new();
     let mut stmt = conn.prepare(
-        "select max(distance) tot_dist, sum(speed)/count(speed) avg_speed,
+        "select max(distance) tot_dist,
                     sum(heart_rate)/count(heart_rate) avg_hr,
                     max(timestamp) end_time, min(timestamp) start_time,
                     file_id
@@ -186,7 +186,7 @@ fn collect_aggregate_stats(
         file_stats.insert("total_time", total_time.num_seconds() as f64 / 60.0);
         file_stats.insert(
             "avg_pace",
-            1.0 / (row.get::<&str, f64>("avg_speed")? * 0.00062137 * 60.0),
+            file_stats["total_time"] / file_stats["total_distance"],
         );
         file_stats.insert("avg_heart_rate", row.get("avg_hr").unwrap_or(0.0));
         agg_data.insert(row.get("file_id")?, file_stats);
