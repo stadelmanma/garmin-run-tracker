@@ -1,25 +1,21 @@
 //! Define the download-epo subcommand
-//! Original source of code: https://github.com/scrapper/postrunner/blob/master/lib/postrunner/EPO_Downloader.rb
+//! Original source of code: https://github.com/StevenMaude/armstrong/blob/main/armstrong.go
 use crate::config::Config;
 use crate::Error;
 use chrono::{Duration, Local, TimeZone, Utc};
 use log::{debug, error, info, warn};
 use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-static URI: &str = "https://omt.garmin.com/Rce/ProtobufApi/EphemerisService/GetEphemerisData";
-// This is the payload of the POST request. It was taken from
-// http://www.kluenter.de/garmin-ephemeris-files-and-linux/. It may contain
-// a product ID or serial number.
-static POST_DATA: &[u8] = &[
-    10, 45, 10, 7, 101, 120, 112, 114, 101, 115, 115, 18, 5, 100, 101, 95, 68, 69, 26, 7, 87, 105,
-    110, 100, 111, 119, 115, 34, 18, 54, 48, 49, 32, 83, 101, 114, 118, 105, 99, 101, 32, 80, 97,
-    99, 107, 32, 49, 18, 10, 8, 140, 180, 147, 184, 14, 18, 0, 24, 0, 24, 28, 34, 0,
-];
+// Garmin forum post:
+// "…each EPO SET is 2304 bytes"
+static EPO_LENG: usize = 2304;
+
+static URI: &str = "https://epodownload.mediatek.com/EPO.DAT";
 
 /// Download Extended Prediction Orbit (EPO) data for one or more garmin devices
 #[derive(Debug, StructOpt)]
@@ -37,7 +33,13 @@ pub fn download_epo_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // download, fix and validate the EPO data
     let epo_data = download_epo_data()?;
-    let epo_data = strip_leading_bytes(epo_data)?;
+    if epo_data.len() != 120 * EPO_LENG {
+        let msg = format!("EPO data has unexpected length: {:?}", epo_data.len());
+        error!("{}", &msg);
+        return Err(Box::new(Error::Other(msg)));
+    }
+
+    let epo_data = trim_epo_data(epo_data);
     validate_epo_data(&epo_data)?;
 
     // output the EPO data to a single file or the config defined locations
@@ -75,17 +77,9 @@ fn download_epo_data() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         HeaderName::from_static("garmin-client-name"),
         HeaderValue::from_static("CoreService"),
     );
-    headers.insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static("application/octet-stream"),
-    );
-    headers.insert(
-        CONTENT_LENGTH,
-        HeaderValue::from_str(&format!("{}", POST_DATA.len()))?,
-    );
 
     let client = Client::new();
-    let resp = client.post(URI).headers(headers).body(POST_DATA).send()?;
+    let resp = client.get(URI).headers(headers).send()?;
     if resp.status().is_success() {
         // return EPO data
         match resp.bytes() {
@@ -101,43 +95,14 @@ fn download_epo_data() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     }
 }
 
-/// The downloaded data contains Extended Prediction Orbit data for 6 hour
-/// windows for 7 days. Each EPO set is 2307 bytes long, but the first 3
-/// bytes must be removed for the FR620 to understand it.
-/// https://forums.garmin.com/apps-software/mac-windows-software/f/garmin-express/71291/when-will-garmin-express-mac-be-able-to-sync-gps-epo-bin-file-on-fenix-2
-/// The 2304 bytes consist of 32 sets of 72 byte GPS satellite data.
-/// http://www.vis-plus.ee/pdf/SIM28_SIM68R_SIM68V_EPO-II_Protocol_V1.00.pdf
-fn strip_leading_bytes(data: Vec<u8>) -> Result<Vec<u8>, Error> {
-    if data.len() != 28 * 2307 {
-        let msg = format!(
-            "EPO data has unexpected length of {} bytes instead of {}",
-            data.len(),
-            28 * 2307
-        );
-        error!("{}", &msg);
-        return Err(Error::Other(msg));
-    }
-
-    // remove the 3 leading bytes of each 2307 byte chunk
-    let mut fixed = Vec::with_capacity(28 * 2304);
-    for chk in data.chunks(2307) {
-        // the post runner code checked that the fill bytes were all 0 but the logic is broken due
-        // to a faulty type conversion. This doesn't appear to be the case anymore but in the file
-        // I downloaded they were all 10, 128, 192.
-        fixed.extend_from_slice(&chk[3..]);
-    }
-
-    if fixed.len() != 28 * 2304 {
-        let msg = format!(
-            "Fixed EPO data has unexpected length of {} bytes instead of {}",
-            fixed.len(),
-            28 * 2304
-        );
-        error!("{}", &msg);
-        return Err(Error::Other(msg));
-    }
-
-    Ok(fixed)
+/// trims the MediaTek data sufficiently for a Garmin watch.
+fn trim_epo_data(data: Vec<u8>) -> Vec<u8> {
+    // Garmin forum post:
+    // "…even with such a clean file, the Garmin watches use only a max of one-digit
+    // days, ie 9 days of data…"
+    // "…each EPO SET … has 6 hours of satellite locations…" so 4 per day
+    let nbytes = 9 * 4 * EPO_LENG;
+    data[..nbytes].to_vec()
 }
 
 /// Verify the checksum and the timestamps in the EPO data
@@ -164,7 +129,7 @@ fn validate_epo_data(data: &[u8]) -> Result<(), Error> {
         // indicate the start of the 6 hour window that the data is for.
         let hours_after = sat[0] as i64 | ((sat[1] as i64) << 8) | ((sat[2] as i64) << 16);
         let date = ref_date + Duration::hours(hours_after);
-        if date > now + Duration::hours(8 * 24) {
+        if date > now + Duration::hours(9 * 24) {
             warn!("EPO timestamp ({:?}) is too far in the future", date);
         } else if date < now - Duration::hours(24) {
             warn!("EPO timestamp ({:?}) is too old", date);
