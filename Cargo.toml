@@ -3,3 +3,4 @@ members = [
     "garmin_run_tracker",
     "garmin_run_tracker_derive",
 ]
+resolver = "3"

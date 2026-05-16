@@ -2,7 +2,7 @@
 name = "garmin_run_tracker"
 version = "0.2.0"
 authors = ["Matthew Stadelman <stadelmanma@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "An application to process and store garmin FIT files from runs."
 license = "MIT"
 repository = "https://github.com/stadelmanma/garmin-run-tracker"
